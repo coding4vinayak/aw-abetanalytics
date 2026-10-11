@@ -1,0 +1,210 @@
+import Link from "next/link";
+import { prisma } from "@/lib/db";
+import { DashboardShell } from "@/components/dashboard-shell";
+import { resolveWorkspace } from "@/lib/resolve-workspace";
+import { signOut } from "@/app/auth-actions";
+import { switchWorkspaceAction } from "@/app/member-actions";
+import { createFirstKey } from "@/app/key-actions";
+import { ApiKeyOnboarding } from "@/components/api-key-onboarding";
+import { AiPanel, type AiField } from "@/components/ai-panel";
+import { metricHeadline } from "@/lib/metrics";
+import type { MetricResult } from "@/lib/metrics";
+
+export const dynamic = "force-dynamic";
+
+function Card({ label, value, sub }: { label: string; value: React.ReactNode; sub?: string }) {
+  return (
+    <div className="bg-white rounded-2xl shadow-sm p-5">
+      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{label}</p>
+      <p className="mt-1 text-2xl font-bold text-gray-900">{value}</p>
+      {sub && <p className="mt-1 text-xs text-gray-500">{sub}</p>}
+    </div>
+  );
+}
+
+function formatHeadline(result: MetricResult): string {
+  const h = metricHeadline(result);
+  if (h === null) return "—";
+  if (result.kind === "funnel") return `${(h * 100).toFixed(1)}%`;
+  if (Number.isInteger(h)) return h.toLocaleString();
+  return h.toFixed(1);
+}
+
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ workspace?: string }> }) {
+  const { workspace: requestedSlug } = await searchParams;
+  // One policy, shared: the demo stays public, a customer's own workspace needs
+  // their session, and naming anyone else's slug is refused rather than served.
+  const resolved = await resolveWorkspace(requestedSlug);
+  if (!resolved.workspace) {
+    return (
+      <main className="min-h-screen flex items-center justify-center p-8">
+        <div className="max-w-sm text-center">
+          <p className="text-gray-600">
+            That workspace needs an account. Sign in to open yours.
+          </p>
+          <a
+            href="/login"
+            className="mt-4 inline-block rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-700"
+          >
+            Sign in
+          </a>
+        </div>
+      </main>
+    );
+  }
+  const workspace = resolved.workspace;
+  const session = resolved.session;
+
+  const metricOptions = session ? await prisma.metric.findMany({
+    where: { workspaceId: workspace.id, status: "ACTIVE" },
+    orderBy: { updatedAt: "desc" },
+    take: 25,
+    select: { id: true, name: true, kind: true, _count: { select: { snapshots: true } } },
+  }) : [];
+
+  // The bar's workspace switcher needs the full list. Anonymous visitors get
+  // none — the demo badge already says what they are looking at.
+  const myWorkspaces = session
+    ? await prisma.membership.findMany({
+        where: { userId: session.userId },
+        include: { workspace: { select: { id: true, name: true, slug: true } } },
+        orderBy: { createdAt: "asc" },
+      })
+    : [];
+
+  const liveKeyCount = session
+    ? await prisma.apiKey.count({ where: { workspaceId: workspace.id, revokedAt: null } })
+    : null;
+
+  const [metrics, eventCount, snapshotCount, dashboards] = await Promise.all([
+    prisma.metric.findMany({
+      where: { workspaceId: workspace.id, status: "ACTIVE" },
+      include: { snapshots: { orderBy: { createdAt: "desc" }, take: 1 } },
+      orderBy: { updatedAt: "desc" },
+    }),
+    prisma.event.count({ where: { workspaceId: workspace.id } }),
+    prisma.snapshot.count({ where: { workspaceId: workspace.id } }),
+    prisma.dashboard.findMany({ where: { workspaceId: workspace.id }, orderBy: { updatedAt: "desc" }, take: 10 }),
+  ]);
+
+  return (
+    <DashboardShell
+      product="AbetAnalytics"
+      accent="text-violet-600"
+      accentSoft="bg-violet-500"
+      account={
+        session
+          ? {
+              name: session.name,
+              email: session.email,
+              signOut,
+              workspaces: myWorkspaces.map((m) => m.workspace),
+              currentWorkspaceId: session.workspaceId,
+              switchWorkspace: switchWorkspaceAction,
+            }
+          : null
+      }
+      workspace={workspace.name}
+      title="Revenue dashboard"
+    >
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <Card label="Events" value={eventCount.toLocaleString()} />
+          <Card label="Metrics" value={metrics.length} />
+          <Card label="Snapshots" value={snapshotCount} sub="frozen, with definitions" />
+          <Card label="Dashboards" value={dashboards.length} />
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
+          <h2 className="text-lg font-bold text-gray-900 mb-4">Metrics, latest snapshot each</h2>
+          {metrics.length === 0 ? (
+            <p className="text-sm text-gray-500">No metrics yet. Create one via <code>POST /api/metrics</code>.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-gray-500">
+                    <th className="pb-2 pr-4 font-medium">Metric</th>
+                    <th className="pb-2 pr-4 font-medium">Kind</th>
+                    <th className="pb-2 pr-4 font-medium">Latest</th>
+                    <th className="pb-2 font-medium">Taken</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {metrics.map((m) => {
+                    const latest = m.snapshots[0];
+                    const result = latest ? (latest.result as unknown as MetricResult) : null;
+                    return (
+                      <tr key={m.id} className="border-t border-gray-100">
+                        <td className="py-3 pr-4 font-medium text-gray-900">{m.name}</td>
+                        <td className="py-3 pr-4 text-gray-600">{m.kind}</td>
+                        <td className="py-3 pr-4 text-gray-900 font-semibold">
+                          {result ? formatHeadline(result) : "—"}
+                        </td>
+                        <td className="py-3 text-gray-600">
+                          {latest ? new Date(latest.createdAt).toLocaleDateString() : "never"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm p-6">
+          <h2 className="text-lg font-bold text-gray-900 mb-4">Dashboards</h2>
+          {dashboards.length === 0 ? (
+            <p className="text-sm text-gray-500">No dashboards yet.</p>
+          ) : (
+            <ul className="space-y-2">
+              {dashboards.map((d) => (
+                <li key={d.id} className="text-sm text-gray-900">
+                  <span className="font-medium">{d.name}</span>
+                  {d.description && <span className="text-gray-500"> — {d.description}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      {session && (
+        <div className="mt-6">
+          <AiPanel
+            config={{
+              title: "Explain a metric move",
+              blurb:
+                "Compares the last two snapshots and explains what changed, using only the dimension breakdown the metrics engine computed. Speculation is kept separate from what the data shows.",
+              endpoint: "/api/ai/explain-metric",
+              entityLabel: "Metric",
+              idField: "metricId",
+              buttonLabel: "Explain this change",
+              emptyText: "No metrics yet, or none with two snapshots to compare.",
+              options: metricOptions.map((m) => ({
+                id: m.id,
+                label: `${m.name} (${m.kind}) — ${m._count.snapshots} snapshot${m._count.snapshots === 1 ? "" : "s"}`,
+              })),
+            }}
+            fields={[
+              { path: "current", title: "Current value" },
+              { path: "previous", title: "Previous value" },
+              { path: "changePct", title: "Change" },
+              { path: "explanation.summary", title: "What moved" },
+              { path: "explanation.contributors", title: "Contributors", list: true },
+              { path: "explanation.hypotheses", title: "Worth ruling out", list: true },
+              { path: "explanation.recommendation", title: "Suggested next step" },
+            ] satisfies AiField[]}
+          />
+        </div>
+      )}
+
+      {session && liveKeyCount === 0 && (
+        // Only for a signed-in workspace with no usable key: a stranger on the
+        // public demo has no account to attach a key to, and prompting them
+        // would be an invitation to sign up mid-demo.
+        <div className="mt-6">
+          <ApiKeyOnboarding createKey={createFirstKey} />
+        </div>
+      )}
+      </DashboardShell>
+  );
+}

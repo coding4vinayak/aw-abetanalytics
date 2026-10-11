@@ -1,0 +1,293 @@
+// AbetAnalytics - Revenue intelligence & BI.
+//
+// SQLite by default so the product runs with zero infrastructure.
+// For Postgres: change `provider` to "postgresql" and point DATABASE_URL.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events     Event[]
+  metrics    Metric[]
+  dashboards Dashboard[]
+  snapshots  Snapshot[]
+  alertRules AlertRule[]
+  alertEvents AlertEvent[]
+  memberships Membership[]
+  sessions   Session[]
+  invites     Invite[]
+  apiKeys     ApiKey[]
+}
+
+/// One business fact: a signup, a payment, a site visit. Dimensions carry
+/// the who/what (plan, channel, region); value carries the how-much.
+model Event {
+  id          String   @id @default(cuid())
+  workspaceId String
+  type        String
+  occurredAt  DateTime
+  dimensions  Json?
+  value       Float?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, type, occurredAt])
+}
+
+/// A named question with its definition attached. Kinds: count | sum | avg |
+/// unique | funnel. Config holds event names, field, filters, identityField.
+model Metric {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  description String?
+  kind        String
+  config      Json
+  status      String   @default("ACTIVE") // ACTIVE | ARCHIVED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  snapshots Snapshot[]
+  alertRules AlertRule[]
+
+  @@index([workspaceId, status])
+  // The metrics list orders by updatedAt within a workspace. Without this index
+  // that sort is a scan of every metric the tenant has, on a route a dashboard
+  // polls.
+  @@index([workspaceId, updatedAt])
+}
+
+/// An immutable answer: the result PLUS a frozen copy of the definition and
+/// range that produced it. Editing the metric later cannot rewrite history —
+/// which is the entire point for board packs.
+model Snapshot {
+  id          String   @id @default(cuid())
+  workspaceId String
+  metricId    String
+  rangeStart  DateTime
+  rangeEnd    DateTime
+  // Frozen: the metric name, kind and config at compute time.
+  definition  Json
+  result      Json
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  metric    Metric    @relation(fields: [metricId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, metricId])
+  @@index([metricId, createdAt])
+}
+
+model Dashboard {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  description String?
+  // Ordered cards: [{ metricId, title? }]
+  layout      Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+}
+
+/// Fires when a fresh snapshot crosses a threshold. Evaluated at snapshot
+/// time, never on live queries, so an alert always points at a frozen number.
+model AlertRule {
+  id          String   @id @default(cuid())
+  workspaceId String
+  metricId    String
+  name        String
+  // gt | gte | lt | lte
+  operator    String
+  threshold   Float
+  // Where to POST { rule, metric, snapshotId, value } as JSON.
+  webhookUrl  String
+  isActive    Boolean  @default(true)
+  lastFiredAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  metric    Metric       @relation(fields: [metricId], references: [id], onDelete: Cascade)
+  events    AlertEvent[]
+
+  @@index([workspaceId, isActive])
+}
+
+model AlertEvent {
+  id          String   @id @default(cuid())
+  workspaceId String
+  ruleId      String
+  snapshotId  String?
+  value       Float
+  delivered   Boolean  @default(false)
+  error       String?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  rule      AlertRule  @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@index([ruleId])
+}
+
+/// Workspace-scoped API keys. Plaintext is shown once at mint and never stored.
+model ApiKey {
+  id          String    @id @default(cuid())
+  workspaceId String
+  name        String
+  /// sha256 of the full key. Lookup is by hash, never by plaintext.
+  hashedKey   String    @unique
+  /// First characters, safe to display: "lg_live_a1B2…".
+  prefix      String
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+}
+
+/// A person who can sign in to the browser UI. Machine access stays with
+/// `ApiKey`; this row is only for the human holding a cookie.
+model User {
+  id           String   @id @default(cuid())
+  /// Stored lowercased. The unique index is what makes signup idempotent at the
+  /// database level rather than only in application code.
+  email        String   @unique
+  name         String?
+  /// scrypt digest, never a plaintext password. See `src/lib/password.ts` for
+  /// why scrypt and not bcrypt or argon2.
+  passwordHash String
+  /// Set true by the verification link. Enforced at sign-in only when a mail
+  /// provider is configured — see `verificationEnforced()` in `lib/email.ts`.
+  emailVerified Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions               Session[]
+  emailVerificationToken EmailVerificationToken?
+  passwordResetTokens    PasswordResetToken[]
+  /// Every workspace this person can open, with the role each seat carries.
+  memberships    Membership[]
+  invitesCreated Invite[]      @relation("InviteCreatedBy")
+}
+
+/// A browser session. The cookie carries a random token and only its sha256 is
+/// stored, so a database dump yields hashes rather than working logins.
+model Session {
+  id          String   @id @default(cuid())
+  userId      String
+  workspaceId String
+  tokenHash   String   @unique
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Per-address attempt counter behind the login and signup forms, so one client
+/// cannot grind through a list of addresses.
+model AuthThrottle {
+  /// "<purpose>:<client address>", e.g. "signin:203.0.113.7".
+  key         String    @id
+  /// Events counted inside the current window: failed guesses, or accounts
+  /// created, depending on which form took the tally.
+  count       Int       @default(0)
+  windowStart DateTime  @default(now())
+  lockedUntil DateTime?
+
+  @@index([windowStart])
+}
+
+/// Single-use email-verification link. Stored hashed, like every other secret
+/// here, so a database dump yields no redeemable links.
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+}
+
+/// Single-use password-reset link. Redeeming it also destroys every session the
+/// user holds, because a reset exists to evict whoever prompted it.
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+}
+
+/// One seat in a workspace. The only membership source of truth — see the
+/// migration note in TEST-REPORT: rows were copied from the old implicit join
+/// table, crediting OWNER to whoever was already there.
+model Membership {
+  id          String   @id @default(cuid())
+  userId      String
+  workspaceId String
+  /// OWNER | ADMIN | MEMBER. Signup creates OWNER; invites can only grant ADMIN
+  /// or MEMBER, so accepting a link can never seize a workspace.
+  role        String   @default("OWNER")
+  createdAt   DateTime @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId])
+  @@index([workspaceId])
+}
+
+/// A single-use link addressed to one email. Stored hashed, like every other
+/// secret here, so a dump yields no redeemable invitations.
+model Invite {
+  id          String    @id @default(cuid())
+  workspaceId String
+  /// Lowercased. An account that is not this address cannot redeem it.
+  email       String
+  /// ADMIN | MEMBER. OWNER is never issuable.
+  role        String
+  tokenHash   String    @unique
+  createdById String
+  /// Links age out. An invitation left in a chat window or a deleted browser is
+  /// a standing door, and nothing withdraws it when the sender changes their mind.
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User      @relation("InviteCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([email])
+}
