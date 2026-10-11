@@ -1,5 +1,8 @@
 # AbetAnalytics
 
+![CI](https://github.com/coding4vinayak/aw-abetanalytics/actions/workflows/ci.yml/badge.svg)
+
+
 Revenue intelligence your board will not argue with. Define a metric once,
 snapshot it with its definition attached, argue never again.
 
