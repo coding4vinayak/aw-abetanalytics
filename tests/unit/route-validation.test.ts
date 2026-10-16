@@ -42,14 +42,14 @@ const UNVALIDATED: Record<string, string[]> = {
   "src/app/api/billing/portal/route.ts": ["POST"],
 };
 
-// Measured: `collectHandlers()` over the thirteen route files answers 24 handlers,
-// of which 11 read a JSON body — the 8 POSTs that call `request.json()` and the 3
-// PATCHes. The webhook POST reads raw text for its signature, and the 3 DELETEs
-// and the 9 GETs take their input from the path and the query string — different
+// Measured: `collectHandlers()` over the fifteen route files answers 28 handlers,
+// of which 13 read a JSON body — the 9 POSTs and the 4 PATCHes. The billing
+// webhook POST reads raw text for its signature, and the 4 DELETEs and the 11
+// GETs take their input from the path and the query string — different
 // boundaries, not this rule's business.
 const MIN_HANDLERS = 24;
 const MAX_HANDLERS = 51;
-const EXPECTED_BODY_READERS = 11;
+const EXPECTED_BODY_READERS = 13;
 
 function readers() {
   return collectHandlers().filter((h) => READS_A_BODY.test(h.body));

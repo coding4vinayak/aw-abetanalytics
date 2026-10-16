@@ -3,6 +3,7 @@ import { METRIC_KINDS } from "./enums";
 import { asInputJson, asRecord } from "./json";
 import { computeMetric, metricHeadline, type MetricConfig, type MetricEvent, type MetricKind } from "./metrics";
 import { evaluateAlertRules } from "./alerts";
+import { triggerWebhooks } from "./webhooks";
 
 export function readMetricConfig(raw: unknown): MetricConfig {
   return asRecord(raw) as unknown as MetricConfig;
@@ -74,6 +75,23 @@ export async function takeSnapshot(metricId: string, rangeStart: Date, rangeEnd:
   });
 
   const headline = metricHeadline(result);
+
+  // The event a subscriber wires to for "a board number exists now": the row
+  // above is committed with the definition as-run, and the headline is what
+  // the dashboard shows. Emitted before alert evaluation so a receiver sees
+  // the snapshot and then whatever fired on it, in that order.
+  await triggerWebhooks(metric.workspaceId, "snapshot.created", {
+    snapshot: {
+      id: snapshot.id,
+      metricId: metric.id,
+      name: metric.name,
+      kind: metric.kind,
+      rangeStart: definition.rangeStart,
+      rangeEnd: definition.rangeEnd,
+    },
+    headline,
+  });
+
   const alertsFired = await evaluateAlertRules(metric.workspaceId, metric.id, snapshot.id, headline);
 
   return { snapshot, result, headline, alertsFired };
