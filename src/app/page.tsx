@@ -24,7 +24,7 @@ export default function Home() {
               Open live demo
             </a>
             <Link href="/pricing" className="rounded-lg border border-gray-300 hover:bg-gray-50 px-6 py-3 font-semibold transition">
-              Pricing · $0 included with the Abetworks suite
+              Pricing · $19/month · 14-day free trial
             </Link>
           </div>
         </section>

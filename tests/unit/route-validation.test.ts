@@ -26,16 +26,30 @@ const READS_A_BODY = /readJson\s*\(|\brequest\.json\s*\(\s*\)/;
  */
 const VALIDATES = /validateBody\s*\(|validateArray\s*\(|boolFlag\s*\(/;
 
-/** A route that reads a body without a table, with the reason it is allowed to. */
-const UNVALIDATED: Record<string, string[]> = {};
+/**
+ * Handlers that read a body and are not on the list above, each with the reason
+ * it is acceptable. Adding a line here is the review step, same as PUBLIC is for
+ * authentication.
+ *
+ * Neither of these writes a Prisma row. `checkout` is session-authed, and
+ * `priceId` is refused unless it is one of this plan's own prices; `portal`'s
+ * `returnUrl` goes through `sameOriginReturnUrl`, which is a same-origin test
+ * rather than a field shape, so it has no kind here. Both `catch` a non-JSON
+ * body into a 400 rather than a 500.
+ */
+const UNVALIDATED: Record<string, string[]> = {
+  "src/app/api/billing/checkout/route.ts": ["POST"],
+  "src/app/api/billing/portal/route.ts": ["POST"],
+};
 
-// Measured: `collectHandlers()` over the ten route files answers 21 handlers, of
-// which 9 read a body — the 6 POSTs and the 3 PATCHes. The 3 DELETEs and the 9
-// GETs take their input from the path and the query string, which is a different
-// boundary and is not this rule's business.
-const MIN_HANDLERS = 21;
+// Measured: `collectHandlers()` over the thirteen route files answers 24 handlers,
+// of which 11 read a JSON body — the 8 POSTs that call `request.json()` and the 3
+// PATCHes. The webhook POST reads raw text for its signature, and the 3 DELETEs
+// and the 9 GETs take their input from the path and the query string — different
+// boundaries, not this rule's business.
+const MIN_HANDLERS = 24;
 const MAX_HANDLERS = 51;
-const EXPECTED_BODY_READERS = 9;
+const EXPECTED_BODY_READERS = 11;
 
 function readers() {
   return collectHandlers().filter((h) => READS_A_BODY.test(h.body));
