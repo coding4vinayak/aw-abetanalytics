@@ -1,0 +1,16 @@
+# Local Postgres for development — matches DATABASE_URL in .env.example.
+# `docker compose up -d` → `npx prisma migrate deploy` → `npm run dev`.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: abetanalytics
+      POSTGRES_PASSWORD: abetanalytics
+      POSTGRES_DB: abetanalytics
+    ports:
+      - "5432:5432"
+    volumes:
+      - abetanalytics-pg:/var/lib/postgresql/data
+
+volumes:
+  abetanalytics-pg:

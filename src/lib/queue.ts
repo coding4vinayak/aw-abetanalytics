@@ -82,7 +82,7 @@ const workers: Worker[] = [];
  * `removeOnComplete: true`: this app's `GET /api/health` reads
  * `getJobCounts("waiting", "active", "failed")` and never `completed` (read from
  * `src/app/api/health/route.ts`), so a retained completed job is a Redis key with no
- * reader — the durable record of a snapshot is SQLite, not the queue.
+ * reader — the durable record of a snapshot is the database, not the queue.
  * `removeOnFail: 100`: a failed job's hash is the only place its payload and stack
  * survive, so failures are kept, bounded to survive a storm without growing forever;
  * it makes the `failed` number "recent failures" rather than cumulative.
