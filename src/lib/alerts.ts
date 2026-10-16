@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { prisma } from "./db";
 import { assertAllowedTarget } from "./egress";
 
@@ -41,17 +42,34 @@ export async function evaluateAlertRules(
     });
 
     try {
+      // Stringified once, into the exact bytes that are sent and signed. A
+      // second stringify for the signature would be a second serialization
+      // that agrees today and drifts at the first field whose order or
+      // escaping changes — and the drift would look like a forged signature
+      // at the receiver, not like a bug here.
+      const body = JSON.stringify({
+        rule: { id: rule.id, name: rule.name, operator: rule.operator, threshold: rule.threshold },
+        metricId,
+        snapshotId,
+        value,
+        at: new Date().toISOString(),
+      });
+      const signature = crypto.createHmac("sha256", rule.secret).update(body).digest("hex");
       await assertAllowedTarget(rule.webhookUrl, "webhookUrl");
       const res = await fetch(rule.webhookUrl, {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          rule: { id: rule.id, name: rule.name, operator: rule.operator, threshold: rule.threshold },
-          metricId,
-          snapshotId,
-          value,
-          at: new Date().toISOString(),
-        }),
+        headers: {
+          "content-type": "application/json",
+          "X-Abetanalytics-Signature": signature,
+          // The same digest, spelled the way receivers outside this family
+          // expect: `sha256=` + hex over the raw body is what an inbound
+          // nuCRM plugin webhook verifies natively, so a rule can point at
+          // one with no adapter in between. The family header stays what
+          // this product's own receivers already read.
+          "X-Webhook-Signature": `sha256=${signature}`,
+          "User-Agent": "Abetanalytics-Webhook/1.0",
+        },
+        body,
         signal: AbortSignal.timeout(10000),
       });
       await prisma.alertEvent.update({
@@ -69,4 +87,17 @@ export async function evaluateAlertRules(
     fired++;
   }
   return fired;
+}
+
+/**
+ * The rule as read routes may show it: everything but the signing secret. The
+ * secret is returned by the response that creates the rule, and by the PATCH
+ * that rotates it — the only two moments a caller needs it — so listing rules
+ * never hands out the keys that sign as this product.
+ */
+export function alertRulePreview<T extends { secret: string }>(
+  rule: T,
+): Omit<T, "secret"> & { secretPreview: string } {
+  const { secret, ...rest } = rule;
+  return { ...rest, secretPreview: `${secret.slice(0, 12)}…` };
 }

@@ -17,8 +17,8 @@ npm run db:seed             # demo workspace: 102 events, 3 metrics, dashboard
 npm run dev                 # http://localhost:3600
 ```
 
-`npm run test` runs 12 unit tests over the metrics engine and alert
-comparisons with no server and no database.
+`npm run test` runs the unit suite — metrics engine, alert comparisons,
+delivery signing — with no server and no database.
 
 ## Metrics
 
@@ -191,8 +191,8 @@ POST   /api/snapshots                      # compute + freeze (+ evaluate alerts
 GET    /api/snapshots?metricId=&workspaceId=
 GET    /api/dashboards?workspaceId=        # list
 POST   /api/dashboards                     # create (metricIds must be in-workspace)
-GET    /api/alerts?workspaceId=&metricId=  # rules
-POST   /api/alerts                         # rule (operator gt/gte/lt/lte, http(s) webhook)
+GET    /api/alerts?workspaceId=&metricId=  # rules (signing secret previewed)
+POST   /api/alerts                         # rule (operator, http(s) webhook; secret returned once)
 GET    /api/alerts/{id}?events=true        # what fired, with delivery receipts
 POST   /api/ai/explain-metric              # explain a snapshot-to-snapshot move
 ```
@@ -219,6 +219,18 @@ points at a frozen number. A null headline (no data) stays quiet rather than
 firing on nothing. Firing records an `AlertEvent` first, then delivers —
 a webhook timeout loses nothing. `delivered:false` with the HTTP status (or
 network error) is the receipt.
+
+Every delivery is signed with HMAC-SHA256 over the exact body bytes, under
+two headers carrying the same hex: `X-Abetanalytics-Signature` and
+`X-Webhook-Signature: sha256=<hex>`. The second is the generic spelling an
+inbound nuCRM plugin webhook verifies natively — point a rule's `webhookUrl`
+straight at one and nuCRM accepts the call with no adapter in between. The
+secret is minted with the rule and returned by the response that creates it;
+reads show a preview, and `PATCH /api/alerts/{id}` with
+`{ "rotateSecret": true }` mints a new one and is the only response that
+hands it back. Verify against the raw request bytes — re-serialising the JSON
+before verification fails on the first key whose ordering differs, and that
+reads like a broken signature rather than a changed string.
 
 ## Billing
 
