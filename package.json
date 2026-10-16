@@ -15,7 +15,7 @@
     "seed:key": "tsx prisma/seed-key.ts"
   },
   "dependencies": {
-    "@prisma/client": "^6.19.3",
+    "@prisma/client": "^7.10.0",
     "@sentry/nextjs": "^11.6.0",
     "bullmq": "^5.15.0",
     "ioredis": "^5.4.1",
