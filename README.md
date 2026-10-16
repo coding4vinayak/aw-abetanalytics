@@ -194,6 +194,11 @@ POST   /api/dashboards                     # create (metricIds must be in-worksp
 GET    /api/alerts?workspaceId=&metricId=  # rules (signing secret previewed)
 POST   /api/alerts                         # rule (operator, http(s) webhook; secret returned once)
 GET    /api/alerts/{id}?events=true        # what fired, with delivery receipts
+GET    /api/webhooks?workspaceId=          # subscriptions (signing secret previewed)
+POST   /api/webhooks                       # subscription (url + events; secret returned once)
+GET    /api/webhooks/{id}                  # one subscription
+PATCH  /api/webhooks/{id}                  # edit url/events/isActive
+DELETE /api/webhooks/{id}
 POST   /api/ai/explain-metric              # explain a snapshot-to-snapshot move
 ```
 
@@ -231,6 +236,28 @@ reads show a preview, and `PATCH /api/alerts/{id}` with
 hands it back. Verify against the raw request bytes — re-serialising the JSON
 before verification fails on the first key whose ordering differs, and that
 reads like a broken signature rather than a changed string.
+
+## Webhooks
+
+Workspace-level subscriptions (`/api/webhooks`): each row is a URL plus the
+event names it wants. Two events exist and the set is closed at subscribe
+time — a name nothing emits is a 400, not a stored row, because a subscription
+filtered on a typo is the same silence as no subscription at all:
+
+```
+snapshot.created   a metric was frozen with its definition as-run
+alert.triggered    a rule's threshold was met at snapshot time (recorded first)
+```
+
+Delivery is inline and best-effort, in the same shape as alert deliveries:
+one `id` (`evt_…`) and timestamp per logical event shared by every receiver,
+body `{ id, event, timestamp, data }`, signed HMAC-SHA256 over the exact body
+bytes under the same two headers — `X-Abetanalytics-Signature` and
+`X-Webhook-Signature: sha256=<hex>`, so a subscription can point straight at
+an inbound nuCRM plugin webhook. The secret is returned once by POST; reads
+preview it. A receiver that is down is logged, not retried, and never fails
+the snapshot that emitted the event. The menu, the emitters and the headers
+are pinned by `tests/unit/webhook-dispatch.test.ts` against the source itself.
 
 ## Billing
 

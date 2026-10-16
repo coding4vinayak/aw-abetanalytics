@@ -278,3 +278,21 @@ export const EXPLAIN_METRIC = {
   dimension: { kind: "text", max: 200 },
   model: { kind: "text", max: 200 },
 } as const satisfies Schema;
+
+/**
+ * POST /api/webhooks, PATCH /api/webhooks/{id}
+ *
+ * `events` is deliberately absent from both tables — the column is a comma
+ * string and the accepted spellings are "array or comma string", a distinction
+ * a scalar table cannot see; the route checks every name against the closed set
+ * in `lib/webhooks.ts` and refuses the typo before it is stored. `isActive` is
+ * the boolean column a subscription can be silenced with.
+ */
+export const WEBHOOK_CREATE = {
+  url: { kind: "text", required: true, format: "url", max: 2000 },
+} satisfies Schema;
+
+export const WEBHOOK_PATCH = {
+  url: { kind: "text", format: "url", max: 2000 },
+  isActive: { kind: "bool" },
+} satisfies Schema;

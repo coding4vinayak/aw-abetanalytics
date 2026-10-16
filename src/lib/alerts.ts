@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { prisma } from "./db";
 import { assertAllowedTarget } from "./egress";
+import { triggerWebhooks } from "./webhooks";
 
 export type AlertOperator = "gt" | "gte" | "lt" | "lte";
 
@@ -84,6 +85,19 @@ export async function evaluateAlertRules(
     }
 
     await prisma.alertRule.update({ where: { id: rule.id }, data: { lastFiredAt: new Date() } });
+
+    // The firing announced to every subscription that names `alert.triggered`:
+    // the AlertEvent row above is the durable fact, the delivery just recorded
+    // is this rule's own webhook, and this is the workspace-level fan-out.
+    // Best-effort like every delivery here — never fails the snapshot.
+    await triggerWebhooks(workspaceId, "alert.triggered", {
+      rule: { id: rule.id, name: rule.name, operator: rule.operator, threshold: rule.threshold },
+      metricId,
+      snapshotId,
+      value,
+      at: new Date().toISOString(),
+    });
+
     fired++;
   }
   return fired;

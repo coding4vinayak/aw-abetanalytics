@@ -30,6 +30,7 @@ model Workspace {
   sessions   Session[]
   invites     Invite[]
   apiKeys     ApiKey[]
+  webhooks    Webhook[]
   subscription Subscription?
 }
 
@@ -171,6 +172,24 @@ model AlertEvent {
 
   @@index([workspaceId, createdAt])
   @@index([ruleId])
+}
+
+/// Outbound webhook subscriptions: a workspace's URLs, each naming the events it
+/// wants. `events` is a comma string ("snapshot.created,alert.triggered") and the
+/// reader splits it; `secret` signs every delivery as this product.
+model Webhook {
+  id          String   @id @default(cuid())
+  workspaceId String
+  url         String
+  events      String
+  secret      String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, isActive])
 }
 
 /// Workspace-scoped API keys. Plaintext is shown once at mint and never stored.

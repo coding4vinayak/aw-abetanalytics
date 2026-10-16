@@ -214,7 +214,7 @@ import { NextResponse } from "next/server";
  * valid metric is, and the metrics engine is the one that has to run it.
  */
 
-import { collect, collectBody, describe } from "./validation-engine";
+import { collect, collectBody, describe, short } from "./validation-engine";
 import type { Schema, Validated, ValidationProblem } from "./validation-engine";
 
 export type { FieldKind, Field, JsonObject, JsonArray, Schema, Validated, ValidationProblem } from "./validation-engine";
@@ -387,4 +387,50 @@ function fail(problems: ValidationProblem[]): { ok: false; error: NextResponse }
  */
 export function fieldProblem(name: string, message: string): NextResponse {
   return fail([[name, message]]).error;
+}
+
+const EVENT_NAME = /^[A-Za-z][A-Za-z0-9._-]*$/;
+
+/**
+ * Both shapes of an event list are accepted at the boundary and one shape is
+ * stored, so a caller following the README gets an answer instead of a 500 —
+ * measured in the sibling products, `events: ["a.b", "c.d"]` was a 500 on
+ * `.split` and `events: 42` a 500 on `.length`. Names are trimmed, deduped and
+ * held to the one character class every product's events share; at least one
+ * name is required, because a subscription that names nothing is a
+ * subscription nobody meant to create.
+ */
+export function eventNames(
+  value: unknown,
+  name = "events",
+  max = 50,
+): { ok: true; values: string[]; error?: undefined } | { ok: false; values?: undefined; error: NextResponse } {
+  const parts: string[] = [];
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      if (typeof entry !== "string") {
+        return { ok: false, error: bad(`${name} holds ${describe(entry)}; every event must be text`) };
+      }
+      parts.push(entry);
+    }
+  } else if (typeof value === "string") {
+    parts.push(...value.split(","));
+  } else {
+    return {
+      ok: false,
+      error: bad(`${name} must be an array of event names or a comma-separated string, got ${describe(value)}`),
+    };
+  }
+  const values: string[] = [];
+  for (const part of parts) {
+    const token = part.trim();
+    if (!token) continue;
+    if (!EVENT_NAME.test(token)) {
+      return { ok: false, error: bad(`${name} holds ${short(token)}; an event name is letters, digits, dot, dash or underscore`) };
+    }
+    if (!values.includes(token)) values.push(token);
+  }
+  if (!values.length) return { ok: false, error: bad(`${name} must name at least one event`) };
+  if (values.length > max) return { ok: false, error: bad(`${name} names ${values.length} events; at most ${max}`) };
+  return { ok: true, values };
 }
