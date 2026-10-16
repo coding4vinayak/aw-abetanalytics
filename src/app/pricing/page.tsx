@@ -1,30 +1,98 @@
 import type { Metadata } from "next";
 import { SiteNav, SiteFooter } from "@/components/site";
+import { BuyButton } from "@/components/buy-button";
+import { ManageBillingButton } from "@/components/manage-billing";
+import { prisma } from "@/lib/db";
+import { getSession } from "@/lib/session";
+import { PRICES, SUBSCRIPTION_STATUS_ACTIVE } from "@/lib/stripe";
 
 export const metadata: Metadata = {
   title: "Pricing — AbetAnalytics",
-  description: "AbetAnalytics pricing: $0 included with the Abetworks suite.",
+  description: "AbetAnalytics pricing: $19/month or $190/year with a 14-day free trial.",
 };
 
-export default function Page() {
+/** The part of the `Subscription` row this page can say anything about. */
+type Plan = { status: string; stripePriceId: string | null; stripeCurrentPeriodEnd: Date | null };
+
+/**
+ * Module-level for the same reason the dashboard banner's countdown is: the page
+ * renders on the server, so the date is read once here rather than called from
+ * inside the component body.
+ */
+function renewalDate(periodEnd: Date | null): string | null {
+  return periodEnd ? new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(periodEnd) : null;
+}
+
+/**
+ * What a workspace that is already paying needs to be told before it looks at
+ * these cards: which plan it is on, what happens next, and where a change is
+ * actually made. `POST /api/billing/checkout` refuses a second subscription, so
+ * leaving two "Start free trial" buttons in front of a paying customer is a
+ * button that no longer does anything.
+ */
+function planLine(plan: Plan): string {
+  const named =
+    plan.stripePriceId === PRICES.FLAT_ANNUAL ? "Annual" : plan.stripePriceId === PRICES.FLAT_MONTHLY ? "Monthly" : "current";
+  const renews = renewalDate(plan.stripeCurrentPeriodEnd);
+  if (plan.status === "trialing") {
+    return `This workspace is trialing the ${named} plan${renews ? ` until ${renews}` : ""}, when the first invoice lands.`;
+  }
+  if (plan.status === "past_due") {
+    return `This workspace is on the ${named} plan, and its last payment was declined. Updating the card is the fix — a new subscription would not pay the old one.`;
+  }
+  return `This workspace is on the ${named} plan${renews ? `, renews ${renews}` : ""}.`;
+}
+
+export default async function Page() {
+  const session = await getSession();
+  const plan = session
+    ? await prisma.subscription.findUnique({
+        where: { workspaceId: session.workspaceId },
+        select: { status: true, stripePriceId: true, stripeCurrentPeriodEnd: true },
+      })
+    : null;
+  const billed = plan !== null && (SUBSCRIPTION_STATUS_ACTIVE as readonly string[]).includes(plan.status);
+
   return (
     <div className="min-h-screen bg-white text-gray-900">
       <SiteNav />
       <main className="mx-auto max-w-4xl px-6 py-12">
         <h1 className="text-3xl font-bold tracking-tight">Pricing</h1>
-        <p className="mt-2 text-gray-600">AbetAnalytics is included with the Abetworks suite at no extra charge — every workspace gets the full engine.</p>
+        <p className="mt-2 text-gray-600">Revenue intelligence on your own data — every metric computed by the engine, frozen into a snapshot, explained in plain words. One price, every feature.</p>
+        {billed && plan ? (
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+            <span>{planLine(plan)}</span>
+            <ManageBillingButton label="Change plan in the portal" />
+          </div>
+        ) : null}
         <div className="mt-8 grid gap-6 sm:grid-cols-3">
           <div className="rounded-2xl border p-6 border-gray-200 bg-white shadow-sm">
             <p className="text-sm font-semibold uppercase tracking-wide text-gray-600">Monthly</p>
-            <p className="mt-2 text-4xl font-bold">$0</p>
-            <p className="mt-1 text-sm text-gray-600">included with the Abetworks suite</p>
-            <a href="/dashboard?workspace=demo" className="mt-6 block rounded-lg bg-blue-600 px-4 py-2 text-center text-sm font-semibold text-white hover:bg-blue-700 transition">Start now</a>
+            <p className="mt-2 text-4xl font-bold">$19</p>
+            <p className="mt-1 text-sm text-gray-600">per month</p>
+            {plan?.stripePriceId === PRICES.FLAT_MONTHLY ? (
+              <p className="mt-6 rounded-lg bg-green-50 px-4 py-2 text-center text-sm font-semibold text-green-700">Your plan</p>
+            ) : billed ? (
+              <div className="mt-6">
+                <ManageBillingButton label="Switch in the portal" />
+              </div>
+            ) : (
+              <BuyButton priceId="FLAT_MONTHLY" label="Start 14-day free trial" />
+            )}
           </div>
           <div className="rounded-2xl border-2 border-blue-600 p-6 bg-blue-50">
             <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Annual — 2 months free</p>
-            <p className="mt-2 text-4xl font-bold">$0</p>
-            <p className="mt-1 text-sm text-gray-600">included with the Abetworks suite, billed yearly</p>
-            <a href="mailto:support@abetworks.in?subject=AbetAnalytics%20annual%20plan" className="mt-6 block rounded-lg bg-blue-600 px-4 py-2 text-center text-sm font-semibold text-white hover:bg-blue-700 transition">Go annual</a>
+            <p className="mt-2 text-4xl font-bold">$190</p>
+            <p className="mt-1 text-sm text-gray-600">per year, billed yearly</p>
+            {plan?.stripePriceId === PRICES.FLAT_ANNUAL ? (
+              <p className="mt-6 rounded-lg bg-green-50 px-4 py-2 text-center text-sm font-semibold text-green-700">Your plan</p>
+            ) : billed ? (
+              <div className="mt-6">
+                <ManageBillingButton label="Switch in the portal" />
+              </div>
+            ) : (
+              <BuyButton priceId="FLAT_ANNUAL" label="Start 14-day free trial" />
+            )}
           </div>
           <div className="rounded-2xl border p-6 border-gray-200 bg-white shadow-sm">
             <p className="text-sm font-semibold uppercase tracking-wide text-gray-600">Enterprise</p>
@@ -33,25 +101,13 @@ export default function Page() {
             <a href="mailto:support@abetworks.in?subject=AbetAnalytics%20enterprise" className="mt-6 block rounded-lg border border-blue-600 px-4 py-2 text-center text-sm font-semibold text-blue-600 hover:bg-blue-50 transition">Talk to us</a>
           </div>
         </div>
-        <h2 className="mt-12 text-xl font-bold">Also in the Abetworks suite</h2>
-        <p className="mt-2 text-gray-600">AbetAnalytics is free because it is the plumbing the rest of the suite sits on. These are the products teams pair it with — write to us and we will set up one workspace across all of them.</p>
-        <div className="mt-6 space-y-3">
-          <a href="mailto:support@abetworks.in?subject=AbetAgent%20for%20me" className="block rounded-2xl border border-gray-200 bg-white p-4 shadow-sm hover:bg-gray-50 transition">
-            <span className="font-semibold text-gray-900">AbetAgent</span> <span className="text-gray-600">— agents with citations, step traces and human escalation. $99 per month.</span>
-          </a>
-          <a href="mailto:support@abetworks.in?subject=LeadGenius%20for%20me" className="block rounded-2xl border border-gray-200 bg-white p-4 shadow-sm hover:bg-gray-50 transition">
-            <span className="font-semibold text-gray-900">LeadGenius</span> <span className="text-gray-600"> — multichannel outreach with warmup and deliverability guardrails. $29 per user per month.</span>
-          </a>
-          <a href="mailto:support@abetworks.in?subject=LeadWorks%20for%20me" className="block rounded-2xl border border-gray-200 bg-white p-4 shadow-sm hover:bg-gray-50 transition">
-            <span className="font-semibold text-gray-900">LeadWorks</span> <span className="text-gray-600"> — sources, scraping, enrichment, validation and exports in one pipeline. $49 per month.</span>
-          </a>
-        </div>
         <h2 className="mt-12 text-xl font-bold">Questions</h2>
         <div className="mt-4 space-y-4">
-          <div><p className="font-semibold text-gray-900">Is there a trial?</p><p className="mt-1 text-gray-600">It is included — open the live demo with 102 events, 3 metrics, and a dashboard. No card, ever.</p></div>
-          <div><p className="font-semibold text-gray-900">What if we change a metric later?</p><p className="mt-1 text-gray-600">Snapshots keep the definition as-run, so history never rewrites itself.</p></div>
-          <div><p className="font-semibold text-gray-900">How is this different from a dashboard tool?</p><p className="mt-1 text-gray-600">Dashboards show queries; AbetAnalytics freezes answers. The snapshot is the contract.</p></div>
-          <div><p className="font-semibold text-gray-900">Can I export the numbers?</p><p className="mt-1 text-gray-600">Yes — metrics, snapshots, and funnels all export for board packs.</p></div>
+          <div><p className="font-semibold text-gray-900">Is there a trial?</p><p className="mt-1 text-gray-600">Yes, two. The live demo workspace is open to anyone, no card. And every paid plan starts with a 14-day free trial — cancel from the billing portal any time before day 14 and you are not charged.</p></div>
+          <div><p className="font-semibold text-gray-900">Where does the data come from?</p><p className="mt-1 text-gray-600">Your events: signups, payments, visits, sent over the API with a workspace key. Metrics are computed from those events and frozen into snapshots with their definitions — nothing is inferred from third-party data.</p></div>
+          <div><p className="font-semibold text-gray-900">Can I cancel anytime?</p><p className="mt-1 text-gray-600">Yes. Plans are month-to-month; service runs to the end of your billing period.</p></div>
+          <div><p className="font-semibold text-gray-900">Do you offer annual billing?</p><p className="mt-1 text-gray-600">Yes — $190 per year, two months free, one invoice.</p></div>
+          <div><p className="font-semibold text-gray-900">Already paying, and want the other plan?</p><p className="mt-1 text-gray-600">The billing portal does it — switching to annual credits what you have already paid, and starting a second checkout would be a second subscription with a second invoice.</p></div>
         </div>
       </main>
       <SiteFooter />

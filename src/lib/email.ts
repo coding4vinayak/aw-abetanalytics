@@ -220,3 +220,196 @@ export function renderPasswordResetEmail(data: {
     data.resetUrl,
   );
 }
+
+// ---------------------------------------------------------- billing templates
+export function renderReceiptEmail(data: {
+  product: string;
+  name: string | null;
+  planLabel: string;
+  periodEnd: Date | null;
+  portalUrl: string;
+  trialing?: boolean;
+}): { subject: string; html: string; text: string } {
+  const greeting = data.name ? `Hi ${data.name},` : "Hi,";
+  const renews = data.periodEnd
+    ? new Intl.DateTimeFormat("en", { dateStyle: "long" }).format(data.periodEnd)
+    : "your next billing date";
+  if (data.trialing) {
+    return {
+      subject: `${data.product} — trial started`,
+      ...layout(
+        data.product,
+        "Trial started",
+        `${greeting} your ${data.planLabel} trial is active. Your first invoice is dated ${renews}. Cancel any time from the billing portal before then and you are not charged.`,
+        "Billing portal",
+        data.portalUrl,
+      ),
+    };
+  }
+  return {
+    subject: `${data.product} — payment received`,
+    ...layout(
+      data.product,
+      "Payment received",
+      `${greeting} your ${data.planLabel} subscription is active. Your next invoice is dated ${renews}. Manage your card, invoices or cancellation any time from the billing portal.`,
+      "Billing portal",
+      data.portalUrl,
+    ),
+  };
+}
+
+
+/**
+ * Dunning. A declined card that nobody mentions is churn in slow motion: the
+ * buyer thinks everything is fine until access stops. This email goes out on
+ * every invoice.payment_failed, so the last one before Stripe cancels is
+ * always seen.
+ */
+export function renderPaymentFailedEmail(data: {
+  product: string;
+  name: string | null;
+  portalUrl: string;
+}): { subject: string; html: string; text: string } {
+  const greeting = data.name ? `Hi ${data.name},` : "Hi,";
+  return {
+    subject: `Action needed — your ${data.product} payment failed`,
+    ...layout(
+      data.product,
+      "We could not take your last payment",
+      `${greeting} your most recent invoice was declined. Your card updates and retries automatically, but the fastest fix is to confirm a working card in the billing portal. If payment keeps failing, access to your workspace ends when Stripe cancels the subscription.`,
+      "Update payment method",
+      data.portalUrl,
+    ),
+  };
+}
+
+/**
+ * Trial over, first real charge taken. The buyer could cancel here, so this is
+ * the one email that has to remind them why they bought — no feature pitch,
+ * just the plain fact that the trial converted and what the next invoice is.
+ */
+export function renderTrialEndedEmail(data: {
+  product: string;
+  name: string | null;
+  periodEnd: Date | null;
+  portalUrl: string;
+}): { subject: string; html: string; text: string } {
+  const greeting = data.name ? `Hi ${data.name},` : "Hi,";
+  const next = data.periodEnd
+    ? new Intl.DateTimeFormat("en", { dateStyle: "long" }).format(data.periodEnd)
+    : "your next billing date";
+  return {
+    subject: `Your ${data.product} trial is now a paid plan`,
+    ...layout(
+      data.product,
+      "Trial ended — paid plan active",
+      `${greeting} your 14-day trial just converted and your first payment went through. Your next invoice is dated ${next}. Everything stays exactly as you left it; cancel any time from the portal and you are not billed again.`,
+      "Billing portal",
+      data.portalUrl,
+    ),
+  };
+}
+
+/**
+ * The pre-expiry nudge — the one email a trial cannot do without. A buyer who
+ * forgets the trial is running has no reason to log in before day 14, and the
+ * conversion decision is made in the days *before* the charge, not after it. So
+ * this arrives while there is still time to act, says the date plainly, and
+ * repeats the cancel-anytime promise that made the card-up trial acceptable in
+ * the first place.
+ */
+export function renderTrialNudgeEmail(data: {
+  product: string;
+  name: string | null;
+  daysLeft: number;
+  /** The caller only reaches this once the row carries a date; a countdown with nothing to count down to is not a warning. */
+  periodEnd: Date;
+  dashboardUrl: string;
+}): { subject: string; html: string; text: string } {
+  const greeting = data.name ? `Hi ${data.name},` : "Hi,";
+  const dayWord = data.daysLeft === 1 ? "day" : "days";
+  const ends = new Intl.DateTimeFormat("en", { dateStyle: "long" }).format(data.periodEnd);
+  return {
+    subject: `${data.daysLeft} ${dayWord} left in your ${data.product} trial`,
+    ...layout(
+      data.product,
+      `Your trial runs until ${ends}`,
+      `${greeting} you have ${data.daysLeft} ${dayWord} of full access left, and the first invoice is dated ${ends}. Nothing is charged before then — keep the plan if it earned its place, or cancel from the billing portal any time up to that date and you are never billed.`,
+      "Open your dashboard",
+      data.dashboardUrl,
+    ),
+  };
+}
+
+/**
+ * The card worked again. Short, and says thank you — a customer who fixed a
+ * failed payment is one support ticket away from churning, and this email is
+ * the cheapest way to make sure they do not open it.
+ */
+export function renderPaymentRecoveredEmail(data: {
+  product: string;
+  name: string | null;
+  portalUrl: string;
+}): { subject: string; html: string; text: string } {
+  const greeting = data.name ? `Hi ${data.name},` : "Hi,";
+  return {
+    subject: `${data.product} — payment recovered, thanks for fixing it`,
+    ...layout(
+      data.product,
+      "You are back in good standing",
+      `${greeting} your last invoice has been paid and your workspace is back in good standing. Nothing changed while it was past due — your data, keys and history are all where you left them.`,
+      "Open your dashboard",
+      data.portalUrl,
+    ),
+  };
+}
+
+/**
+ * The cancellation confirmation. They already clicked cancel in the portal, so
+ * this is not a retention attempt dressed as a receipt — asking twice in the
+ * same email is what gets a billing message marked as spam. It answers the two
+ * questions a cancellation actually raises: will I be charged again, and is my
+ * data gone. Then one link, and no pressure.
+ */
+export function renderCancellationEmail(data: {
+  product: string;
+  name: string | null;
+  pricingUrl: string;
+}): { subject: string; html: string; text: string } {
+  const greeting = data.name ? `Hi ${data.name},` : "Hi,";
+  return {
+    subject: `${data.product} — your subscription is canceled`,
+    ...layout(
+      data.product,
+      "Canceled, and nothing was deleted",
+      `${greeting} your ${data.product} subscription has ended. There is nothing left to cancel and no further charge will be made. Your workspace and everything you built in it are still there — sign in whenever you like. If it turns out to have earned its place, starting a new plan is one page.`,
+      "Choose a plan",
+      data.pricingUrl,
+    ),
+  };
+}
+
+/**
+ * The one attempt to win them back, a week after the cancellation: long enough
+ * that the product is missed, short enough that the reason they bought has not
+ * faded. The whole pitch is that coming back costs nothing and loses nothing —
+ * the new plan opens on another card-up trial, so the risk that made them leave
+ * is not repeated.
+ */
+export function renderWinbackEmail(data: {
+  product: string;
+  name: string | null;
+  pricingUrl: string;
+}): { subject: string; html: string; text: string } {
+  const greeting = data.name ? `Hi ${data.name},` : "Hi,";
+  return {
+    subject: `Your ${data.product} workspace is still exactly as you left it`,
+    ...layout(
+      data.product,
+      "A week on — your data is untouched",
+      `${greeting} it has been a week since your ${data.product} subscription ended, and nothing has been deleted. Your records, configuration and history are where you left them. Coming back is not a re-onboarding: choose a plan and the workspace picks up as it was, and it opens with another 14 days before the first charge — so returning costs you nothing until it is worth something again.`,
+      "Pick it back up",
+      data.pricingUrl,
+    ),
+  };
+}

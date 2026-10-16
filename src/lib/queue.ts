@@ -1,5 +1,9 @@
 import { Queue, Worker, Job } from "bullmq";
 import IORedis from "ioredis";
+// Type-only, so it does not close a cycle at runtime: `billing-jobs` imports this
+// file for `queues`/`enqueue`, and this file needs the payload shapes its billing
+// Worker dispatches on. A value import here would be a cycle at module load.
+import type { CancellationData, TrialNudgeData } from "./billing-jobs";
 
 const connection = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
   maxRetriesPerRequest: null,
@@ -65,7 +69,7 @@ export const SNAPSHOTS_QUEUE = "snapshots";
  * The name stays exactly where `shared/check-queues.sh` reads it — the first argument
  * of the Queue construction — so memoising does not move the asserted fact.
  */
-const built: { snapshots?: Queue } = {};
+const built: { snapshots?: Queue; billing?: Queue } = {};
 
 /** Every Worker this process started, so shutdownWorkers() can actually close them. */
 const workers: Worker[] = [];
@@ -92,10 +96,21 @@ export const queues = {
   get snapshots(): Queue {
     return (built.snapshots ??= new Queue(SNAPSHOTS_QUEUE, { connection, defaultJobOptions: JOB_RETENTION }));
   },
+  /**
+   * Billing mails — a product-prefixed name because this Redis is shared with the
+   * rest of the suite and `bull:abetanalytics-billing:…` is the only thing that
+   * says whose delayed jobs these are (§27 found that collision through a bare
+   * `runs`). `snapshots` predates the convention and keeps its keyspace (#51);
+   * this queue is new, so it takes the prefix with no stored state to orphan.
+   */
+  get billing(): Queue {
+    return (built.billing ??= new Queue("abetanalytics-billing", { connection, defaultJobOptions: JOB_RETENTION }));
+  },
 };
 
 export async function startWorkers() {
   const { takeSnapshot } = await import("./snapshots");
+  const { runBillingJob } = await import("./billing-jobs");
 
   const worker = new Worker(SNAPSHOTS_QUEUE, async (job: Job) => {
     const { metricId, rangeStart, rangeEnd } = job.data as {
@@ -107,6 +122,13 @@ export async function startWorkers() {
   }, { connection, concurrency: 3 });
 
   workers.push(worker);
+
+  // One email to one owner per job, so the transport is the slow part and there is
+  // nothing to gain from running two at once.
+  workers.push(new Worker("abetanalytics-billing", async (job: Job) => {
+    await runBillingJob(job as Job<TrialNudgeData | CancellationData>);
+  }, { connection, concurrency: 1 }));
+
   console.log("AbetAnalytics workers started");
 }
 
