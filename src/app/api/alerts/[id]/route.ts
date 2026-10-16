@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import { classifyTarget } from "@/lib/egress";
 import { readJson, validateBody } from "@/lib/validate";
 import { ALERT_UPDATE } from "@/lib/fields";
+import { alertRulePreview } from "@/lib/alerts";
+import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +34,7 @@ async function GET_impl(request: Request, { params }: { params: Promise<{ id: st
     include: { events: { orderBy: { createdAt: "desc" }, take: 10 } },
   });
   if (!rule) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(rule);
+  return NextResponse.json(alertRulePreview(rule));
 }
 
 async function PATCH_impl(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -47,13 +49,16 @@ async function PATCH_impl(request: Request, { params }: { params: Promise<{ id: 
 
   const checked = validateBody(body, ALERT_UPDATE, { requireWrite: true });
   if (checked.error) return checked.error;
-  const { name, operator, threshold, webhookUrl, isActive } = checked.data;
+  const { name, operator, threshold, webhookUrl, isActive, rotateSecret } = checked.data;
 
   if (webhookUrl !== undefined) {
     const target = await classifyTarget(webhookUrl, "webhookUrl");
     if (!target.ok) return NextResponse.json({ error: target.reason }, { status: 422 });
   }
 
+  // Rotation is the one PATCH that hands a secret back — the new one, once.
+  // Every other PATCH answers with the preview, like every read.
+  const newSecret = rotateSecret === true ? crypto.randomBytes(32).toString("hex") : undefined;
   const rule = await prisma.alertRule.update({
     where: { id },
     data: {
@@ -62,9 +67,10 @@ async function PATCH_impl(request: Request, { params }: { params: Promise<{ id: 
       ...(threshold !== undefined ? { threshold } : {}),
       ...(webhookUrl !== undefined ? { webhookUrl } : {}),
       ...(isActive !== undefined ? { isActive } : {}),
+      ...(newSecret ? { secret: newSecret } : {}),
     },
   });
-  return NextResponse.json(rule);
+  return NextResponse.json(newSecret ? rule : alertRulePreview(rule));
 }
 
 async function DELETE_impl(request: Request, { params }: { params: Promise<{ id: string }> }) {

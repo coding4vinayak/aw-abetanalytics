@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { prisma } from "../src/lib/db";
 import { takeSnapshot } from "../src/lib/snapshots";
 import { mintApiKey } from "../src/lib/apikeys";
@@ -154,6 +155,7 @@ async function main() {
         operator: "lt",
         threshold: 0.1,
         webhookUrl: "https://example.com/hooks/funnel",
+        secret: crypto.randomBytes(32).toString("hex"),
         isActive: true,
       },
     }),

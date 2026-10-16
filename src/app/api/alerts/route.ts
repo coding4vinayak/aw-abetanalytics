@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import { classifyTarget } from "@/lib/egress";
 import { readJson, validateBody } from "@/lib/validate";
 import { ALERT_CREATE } from "@/lib/fields";
+import { alertRulePreview } from "@/lib/alerts";
+import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +22,9 @@ async function GET_impl(request: Request) {
     include: { _count: { select: { events: true } } },
     orderBy: { updatedAt: "desc" },
   });
-  return NextResponse.json({ rules });
+  // The signing secret is returned by the response that creates the rule,
+  // and by the PATCH that rotates it; every read previews it.
+  return NextResponse.json({ rules: rules.map(alertRulePreview) });
 }
 
 async function POST_impl(request: Request) {
@@ -48,6 +52,9 @@ async function POST_impl(request: Request) {
     return NextResponse.json({ error: "Metric not found in this workspace" }, { status: 404 });
   }
 
+  // Minted with the rule, so no rule exists unsigned: the response below is
+  // the one place the caller sees it.
+  const secret = crypto.randomBytes(32).toString("hex");
   const rule = await prisma.alertRule.create({
     data: {
       workspaceId,
@@ -56,6 +63,7 @@ async function POST_impl(request: Request) {
       operator,
       threshold,
       webhookUrl,
+      secret,
       // `isActive: Boolean(isActive)` measured as storing **true** for `"no"`,
       // for `"false"` and for `[]`. The column's default is already true, so an
       // absent field needs no spread at all — and a present one is now a boolean.

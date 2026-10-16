@@ -163,6 +163,10 @@ export const ALERT_UPDATE = {
   threshold: { kind: "number" },
   webhookUrl: { kind: "text", max: 2000 },
   isActive: { kind: "bool" },
+  // Not a column: `secret` is engine-generated and never caller-named. This
+  // asks the route to mint a new one, and the PATCH response is the one place
+  // the new secret appears.
+  rotateSecret: { kind: "bool" },
 } as const satisfies Schema;
 
 /**

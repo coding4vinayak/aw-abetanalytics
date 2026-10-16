@@ -140,6 +140,10 @@ model AlertRule {
   threshold   Float
   // Where to POST { rule, metric, snapshotId, value } as JSON.
   webhookUrl  String
+  /// Signs every delivery: HMAC-SHA256 hex over the raw body, sent as
+  /// X-Abetanalytics-Signature and the generic X-Webhook-Signature. Minted
+  /// with the rule, handed back once, previewed by every read.
+  secret      String
   isActive    Boolean  @default(true)
   lastFiredAt DateTime?
   createdAt   DateTime @default(now())
