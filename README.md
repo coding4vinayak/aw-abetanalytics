@@ -10,7 +10,9 @@ snapshot it with its definition attached, argue never again.
 
 ```bash
 npm install
-npx prisma migrate dev      # creates the SQLite database
+cp .env.example .env        # DATABASE_URL points at the compose Postgres
+docker compose up -d        # local Postgres 16
+npx prisma migrate deploy   # applies the committed migrations
 npm run db:seed             # demo workspace: 102 events, 3 metrics, dashboard
 npm run dev                 # http://localhost:3600
 ```
@@ -252,10 +254,10 @@ from its own `.d.ts`); the drain waits for the workers' in-flight Redis setup be
 closing anything, and disconnects rather than quitting. Every job bounds its retention at
 construction (`defaultJobOptions: { removeOnComplete: true, removeOnFail: 100 }`) — a
 completed snapshot has no reader (`GET /api/health` counts only `waiting`/`active`/`failed`,
-read from `src/app/api/health/route.ts`) and the snapshot's durable record is SQLite, while a
+read from `src/app/api/health/route.ts`) and the snapshot's durable record is the database, while a
 failed job is kept, capped, as the only surviving record of its payload (the leadgenius
 convention #61, ported #64). The queue keeps its bare name:
 `bull:snapshots:*` already holds jobs, and renaming would orphan them.
-For Postgres, follow the same three steps as abetConnect: provider switch,
-fresh migration history, regenerate. Events cap at 50k rows per compute and
+Postgres is the runtime provider since `chore/postgres-switch` (provider switch,
+fresh migration history, regenerate — the abetConnect recipe). Events cap at 50k rows per compute and
 50k per snapshot read; past that, narrow the range or shard by workspace.
