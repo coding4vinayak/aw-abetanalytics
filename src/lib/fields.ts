@@ -280,6 +280,20 @@ export const EXPLAIN_METRIC = {
 } as const satisfies Schema;
 
 /**
+ * POST /api/metrics/[id]/breakdown
+ *
+ * Before: route did not exist.
+ */
+export const BREAKDOWN = {
+  metricId: { kind: "text", required: true, max: 64 },
+  currentStart: { kind: "date", required: true },
+  currentEnd: { kind: "date", required: true },
+  previousStart: { kind: "date", required: true },
+  previousEnd: { kind: "date", required: true },
+  dimension: { kind: "text", max: 200 },
+} as const satisfies Schema;
+
+/**
  * POST /api/webhooks, PATCH /api/webhooks/{id}
  *
  * `events` is deliberately absent from both tables — the column is a comma

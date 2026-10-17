@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { DashboardShell } from "@/components/dashboard-shell";
+import { BreakdownButton } from "@/components/breakdown-modal";
 import { ManageBillingButton } from "@/components/manage-billing";
 import { resolveWorkspace } from "@/lib/resolve-workspace";
 import { signOut } from "@/app/auth-actions";
@@ -170,7 +171,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       })
     : null;
 
-  const [metrics, eventCount, snapshotCount, dashboards] = await Promise.all([
+  const [metrics, eventCount, snapshotCount, dashboards, alertRules] = await Promise.all([
     prisma.metric.findMany({
       where: { workspaceId: workspace.id, status: "ACTIVE" },
       include: { snapshots: { orderBy: { createdAt: "desc" }, take: 1 } },
@@ -179,6 +180,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     prisma.event.count({ where: { workspaceId: workspace.id } }),
     prisma.snapshot.count({ where: { workspaceId: workspace.id } }),
     prisma.dashboard.findMany({ where: { workspaceId: workspace.id }, orderBy: { updatedAt: "desc" }, take: 10 }),
+    session
+      ? prisma.alertRule.findMany({
+          where: { workspaceId: workspace.id },
+          include: { events: { orderBy: { createdAt: "desc" }, take: 5 } },
+          orderBy: { updatedAt: "desc" },
+        })
+      : [],
   ]);
 
   return (
@@ -226,6 +234,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                     <th className="pb-2 pr-4 font-medium">Kind</th>
                     <th className="pb-2 pr-4 font-medium">Latest</th>
                     <th className="pb-2 font-medium">Taken</th>
+                    <th className="pb-2 font-medium text-right">{session ? "Action" : null}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -241,6 +250,17 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                         </td>
                         <td className="py-3 text-gray-600">
                           {latest ? new Date(latest.createdAt).toLocaleDateString() : "never"}
+                        </td>
+                        <td className="py-3 text-right">
+                          {session && latest && (
+                            <BreakdownButton
+                              metricId={m.id}
+                              name={m.name}
+                              kind={m.kind}
+                              rangeStart={new Date(latest.rangeStart).toISOString()}
+                              rangeEnd={new Date(latest.rangeEnd).toISOString()}
+                            />
+                          )}
                         </td>
                       </tr>
                     );
@@ -266,8 +286,42 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             </ul>
           )}
         </div>
-      {session && (
-        <div className="mt-6">
+
+        {session && alertRules.length > 0 && (
+          <div className="mt-6 bg-white rounded-2xl shadow-sm p-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-4">Alert rules</h2>
+            <div className="space-y-3">
+              {alertRules.map((r) => (
+                <div key={r.id} className="flex items-center justify-between gap-4 rounded-xl border border-gray-200 bg-white p-4 text-sm">
+                  <div className="flex items-center gap-3">
+                    <Pill tone={r.isActive ? "green" : "gray"}>{r.isActive ? "active" : "silent"}</Pill>
+                    <div>
+                      <span className="font-medium text-gray-900">{r.name}</span>
+                      <span className="ml-2 text-xs text-gray-500">{r.operator} {r.threshold}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-gray-500">
+                    {r.events.length > 0 ? (
+                      <>
+                        Last fired:{" "}
+                        <span className="font-medium text-gray-900">
+                          {new Date(r.events[0].createdAt).toLocaleString()}
+                        </span>
+                        ({r.events.length} event{r.events.length === 1 ? "" : "s"})
+                      </>
+                    ) : (
+                      <span>never fired</span>
+                    )}
+                    <span className="text-gray-400">{r.secret.slice(0, 8)}…</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {session && (
+          <div className="mt-6">
           <AiPanel
             config={{
               title: "Explain a metric move",
