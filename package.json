@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev -p 3600",
     "build": "next build",
-    "start": "next start -p 3600",
+    "start": "next start -p ${PORT:-3600}",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "db:migrate": "prisma migrate dev",
