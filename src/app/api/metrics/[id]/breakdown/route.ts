@@ -54,12 +54,25 @@ async function POST_impl(request: Request, { params }: { params: Promise<{ id: s
   const definition = latest ? asRecord(latest.definition) : null;
   const config = readMetricConfig(definition?.config ?? metric.config);
 
+  const current = { start: new Date(currentStart), end: new Date(currentEnd) };
+  const previous = { start: new Date(previousStart), end: new Date(previousEnd) };
+
+  // Both windows are read half-open (`gte start, lt end`). A backwards or
+  // zero-length one returns no events, and `computeMetric` answers 0 for every
+  // segment — a breakdown saying nothing moved, which is worse than a 422
+  // that says why. POST /api/snapshots already refuses this shape.
+  for (const [label, range] of [["current", current], ["previous", previous]] as const) {
+    if (range.end <= range.start) {
+      return NextResponse.json({ error: `${label} range must end after it starts` }, { status: 422 });
+    }
+  }
+
   const rows = await breakdownByDimension({
     workspaceId: metric.workspaceId,
     kind: (definition?.kind ?? metric.kind) as MetricKind,
     config,
-    current: { start: new Date(currentStart), end: new Date(currentEnd) },
-    previous: { start: new Date(previousStart), end: new Date(previousEnd) },
+    current,
+    previous,
     dimension,
   });
 
