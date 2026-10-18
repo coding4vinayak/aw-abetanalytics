@@ -1,7 +1,7 @@
 import { prisma } from "./db";
 import { METRIC_KINDS } from "./enums";
 import { asInputJson, asRecord } from "./json";
-import { computeMetric, metricHeadline, type MetricConfig, type MetricEvent, type MetricKind } from "./metrics";
+import { computeMetric, metricHeadline, matchesMetric, type MetricConfig, type MetricEvent, type MetricKind } from "./metrics";
 import { evaluateAlertRules } from "./alerts";
 import { triggerWebhooks } from "./webhooks";
 
@@ -145,8 +145,39 @@ export async function breakdownByDimension(input: {
     loadEvents(input.workspaceId, input.current.start, input.current.end),
     loadEvents(input.workspaceId, input.previous.start, input.previous.end),
   ]);
+  return segmentBreakdown({
+    kind: input.kind,
+    config: input.config,
+    currentEvents,
+    previousEvents,
+    currentRange: input.current,
+    previousRange: input.previous,
+    dimension: input.dimension,
+  });
+}
 
-  const all = [...currentEvents, ...previousEvents];
+/**
+ * The grouping rules, separated from the read so they can be tested without a
+ * database: which dimension is chosen when none is named, how missing values
+ * are counted, and how the result is ranked and capped.
+ */
+export const UNSET_SEGMENT = "(not set)";
+
+export function segmentBreakdown(input: {
+  kind: MetricKind;
+  config: MetricConfig;
+  currentEvents: MetricEvent[];
+  previousEvents: MetricEvent[];
+  currentRange: { start: Date; end: Date };
+  previousRange: { start: Date; end: Date };
+  dimension?: string;
+}): { dimension: string; segment: string; current: number; previous: number }[] {
+  // Only events the metric actually reads can own a segment. The window also
+  // holds the workspace's other event types, and a segment set built from
+  // those would show a "(not set)" row that is always zero.
+  const currentRelevant = input.currentEvents.filter((e) => matchesMetric(input.kind, input.config, e));
+  const previousRelevant = input.previousEvents.filter((e) => matchesMetric(input.kind, input.config, e));
+  const all = [...currentRelevant, ...previousRelevant];
 
   // A dimension is only usable if it is a plain scalar value on the event view;
   // objects and arrays would make the segment labels meaningless.
@@ -176,14 +207,15 @@ export async function breakdownByDimension(input: {
   }
   if (!dimension) return [];
 
-  const segments = new Set<string>();
-  for (const e of all) {
-    const v = scalarValue(e, dimension as string);
-    if (v !== null) segments.add(v);
-  }
+  // Events that do not carry the dimension still belong to the number the
+  // breakdown is explaining. Dropping them would make the segments sum to
+  // less than the headline with nothing saying so; they share "(not set)".
+  // A literal value with that text lands in the same bucket by construction.
+  const bucketOf = (e: MetricEvent): string => scalarValue(e, dimension as string) ?? UNSET_SEGMENT;
+  const segments = new Set<string>(all.map(bucketOf));
 
   const inSegment = (events: MetricEvent[], segment: string) =>
-    events.filter((e) => scalarValue(e, dimension as string) === segment);
+    events.filter((e) => bucketOf(e) === segment);
 
   const headlineFor = (events: MetricEvent[], range: { start: Date; end: Date }): number => {
     if (events.length === 0) return 0;
@@ -194,8 +226,8 @@ export async function breakdownByDimension(input: {
     .map((segment) => ({
       dimension: dimension as string,
       segment,
-      current: headlineFor(inSegment(currentEvents, segment), input.current),
-      previous: headlineFor(inSegment(previousEvents, segment), input.previous),
+      current: headlineFor(inSegment(currentRelevant, segment), input.currentRange),
+      previous: headlineFor(inSegment(previousRelevant, segment), input.previousRange),
     }))
     // Ranked by how much each segment moved, biggest mover first.
     .sort((a, b) => Math.abs(b.current - b.previous) - Math.abs(a.current - a.previous))

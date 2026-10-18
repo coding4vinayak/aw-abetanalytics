@@ -57,6 +57,21 @@ function inRange(e: MetricEvent, start: Date, end: Date): boolean {
   return t >= start.getTime() && t < end.getTime();
 }
 
+/**
+ * Whether an event belongs to the population a metric reads, before value
+ * handling: the right event type and the metric's filters. The breakdown uses
+ * this to decide which events can contribute a segment — an unrelated event
+ * type must never invent a "(not set)" row for a dimension the metric's own
+ * events all carry.
+ */
+export function matchesMetric(kind: MetricKind, config: MetricConfig, e: MetricEvent): boolean {
+  if (kind === "funnel") {
+    return (config.steps ?? []).some((step) => e.type === step.event && matchesFilters(e, step.filters));
+  }
+  if (!config.event) return false;
+  return e.type === config.event && matchesFilters(e, config.filters);
+}
+
 function numericField(e: MetricEvent, field: string): number | null {
   const v = getPath({ value: e.value, ...e.dimensions }, field);
   return typeof v === "number" && Number.isFinite(v) ? v : null;
