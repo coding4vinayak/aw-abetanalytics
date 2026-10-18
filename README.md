@@ -48,6 +48,19 @@ answered from the first 50,000 rows: a number read from part of a window is not
 the metric, and no field on a snapshot would say so. Preview and breakdown read
 through the same bound.
 
+### Sharing a frozen number
+
+A snapshot exists to be seen, so the dashboard can hand one to someone who is
+not signed in. The **Share** action on a metric's latest snapshot mints a
+192-bit capability token and a read-only page at `/s/{token}` showing the value,
+the range, and the **definition as-run** — and nothing else in the workspace.
+The page is `noindex` (the link is the capability, not a public post) and is
+served only through `findLiveSharedSnapshot`, whose `shareRevokedAt: null`
+filter *is* the revocation: **Stop** kills a link, and sharing again mints a
+fresh token that retires the old one. Minting is session-only — the workspace
+comes from the session cookie, never a request body — and a snapshot id from
+another tenant resolves to "not found".
+
 ## Accounts (browser)
 
 Machine callers authenticate with an API key above. Humans sign in:
