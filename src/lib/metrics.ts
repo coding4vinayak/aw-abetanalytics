@@ -57,6 +57,21 @@ function inRange(e: MetricEvent, start: Date, end: Date): boolean {
   return t >= start.getTime() && t < end.getTime();
 }
 
+/**
+ * Whether an event belongs to the population a metric reads, before value
+ * handling: the right event type and the metric's filters. The breakdown uses
+ * this to decide which events can contribute a segment — an unrelated event
+ * type must never invent a "(not set)" row for a dimension the metric's own
+ * events all carry.
+ */
+export function matchesMetric(kind: MetricKind, config: MetricConfig, e: MetricEvent): boolean {
+  if (kind === "funnel") {
+    return (config.steps ?? []).some((step) => e.type === step.event && matchesFilters(e, step.filters));
+  }
+  if (!config.event) return false;
+  return e.type === config.event && matchesFilters(e, config.filters);
+}
+
 function numericField(e: MetricEvent, field: string): number | null {
   const v = getPath({ value: e.value, ...e.dimensions }, field);
   return typeof v === "number" && Number.isFinite(v) ? v : null;
@@ -154,6 +169,13 @@ export function metricHeadline(result: MetricResult): number | null {
     case "avg":
       return result.value;
     case "funnel": {
+      // Nobody in step one is "no data", not "0% converted". Returning 0 here
+      // made every `lt` rule fire on an empty window — the exact opposite of
+      // the README's "a null headline (no data) stays quiet rather than firing
+      // on nothing". A funnel that had entrants and still converted at 0 is a
+      // real collapse and stays 0.
+      const first = result.steps[0];
+      if (!first || first.count === 0) return null;
       const last = result.steps[result.steps.length - 1];
       return last ? last.rateFromFirst : null;
     }

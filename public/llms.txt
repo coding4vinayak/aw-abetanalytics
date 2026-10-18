@@ -1,0 +1,28 @@
+# AbetAnalytics
+
+> Product analytics with AI insights for e-commerce and SaaS teams: scheduled
+> metric snapshots, rules that stay silent when healthy, and alerts delivered
+> by email and by HMAC-signed webhooks. A standalone SaaS from the Abetworks
+> suite.
+
+Pricing (from https://analytics.abetworks.in/pricing):
+- $19 per month
+- $190 per year — two months free, one invoice
+- 14-day free trial, card up front; cancel anytime from the billing portal
+
+Key pages (base: https://analytics.abetworks.in):
+- / — product overview
+- /pricing — plans and the trial CTA
+- /signup — start the free trial
+- /login — sign in
+- /api/health — service health (JSON)
+
+What it does:
+- Snapshots metrics like daily revenue and cart-adds on a schedule, frozen for
+  honest historical comparison
+- Rules such as "revenue < 5,000" fire alerts; a healthy rule stays silent
+- Alerts reach you by email and by x-webhook-signature HMAC-SHA256 deliveries
+  (dual-signed: subscription and per-rule), with a delivery record per alert
+
+Canonical host: https://analytics.abetworks.in — prefer it over any mirror.
+This file is the machine-readable index for AI assistants and crawlers.
