@@ -209,7 +209,9 @@ POST   /api/ai/explain-metric              # explain a snapshot-to-snapshot move
 and splits a metric's movement between two adjacent ranges across the values of one dimension (`dimension` omitted = the
 engine picks the highest-coverage one). The kind and config are taken from the latest snapshot's frozen definition, so the
 breakdown explains exactly the number the board showed, and every segment's value is computed by `computeMetric` itself —
-there is no second counting rule that could drift out of agreement with the headline. Segments are ranked by movement,
+there is no second counting rule that could drift out of agreement with the headline. Only events the metric actually
+reads (its event type and filters) can own a segment; events it reads that do not carry the chosen dimension share
+`(not set)`, so for an additive metric the segments add back to the headline. Segments are ranked by movement,
 capped at 20. The dashboard surfaces it per metric ("Breakdown") through a session-authenticated server action: the browser
 half never needs an API key, and the workspace comes from the session, not the payload.
 
