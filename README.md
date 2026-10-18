@@ -57,9 +57,12 @@ the range, and the **definition as-run** — and nothing else in the workspace.
 The page is `noindex` (the link is the capability, not a public post) and is
 served only through `findLiveSharedSnapshot`, whose `shareRevokedAt: null`
 filter *is* the revocation: **Stop** kills a link, and sharing again mints a
-fresh token that retires the old one. Minting is session-only — the workspace
-comes from the session cookie, never a request body — and a snapshot id from
-another tenant resolves to "not found".
+fresh token that retires the old one. Minting is session-only from the
+dashboard — the workspace comes from the session cookie, never a request body —
+and a snapshot id from another tenant resolves to "not found". API callers use
+`POST /api/snapshots/{id}/share` (idempotent; `201` the first time, `200` after)
+and `DELETE /api/snapshots/{id}/share`, which share the same lib so the rules
+cannot drift between the two doors.
 
 ## Accounts (browser)
 
@@ -207,6 +210,8 @@ PATCH  /api/metrics/{id}                   # edit (validated; history untouched)
 DELETE /api/metrics/{id}
 POST   /api/snapshots                      # compute + freeze (+ evaluate alerts)
 GET    /api/snapshots?metricId=&workspaceId=
+POST   /api/snapshots/{id}/share              # mint (or return) a read-only link; 201 the first time
+DELETE /api/snapshots/{id}/share              # revoke it — the URL 404s from then on
 POST   /api/metrics/{id}/breakdown         # split movement across a dimension's segments, current vs previous range
 GET    /api/dashboards?workspaceId=        # list
 POST   /api/dashboards                     # create (metricIds must be in-workspace)

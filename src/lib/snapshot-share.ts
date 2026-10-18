@@ -62,3 +62,42 @@ export function findLiveSharedSnapshot(token: string) {
     },
   });
 }
+
+/** The columns mint/revoke need from a snapshot the caller already owns. */
+export type SnapshotShareRow = {
+  id: string;
+  shareToken: string | null;
+  shareCreatedAt: Date | null;
+  shareRevokedAt: Date | null;
+};
+
+/**
+ * Mint — or return — the live link for a snapshot whose ownership the caller
+ * has already checked.
+ *
+ * Deliberately idempotent: a second Share, from the dashboard or the API, hands
+ * back the same URL rather than retiring one someone already pasted into a
+ * chat. Revoking and sharing again is the rotation path.
+ */
+export async function mintSnapshotShare(snapshot: SnapshotShareRow) {
+  if (snapshot.shareToken && !snapshot.shareRevokedAt) {
+    return { token: snapshot.shareToken, createdAt: snapshot.shareCreatedAt, created: false };
+  }
+  const token = newShareToken();
+  const createdAt = new Date();
+  await prisma.snapshot.update({
+    where: { id: snapshot.id },
+    data: { shareToken: token, shareCreatedAt: createdAt, shareRevokedAt: null },
+  });
+  return { token, createdAt, created: true };
+}
+
+/** Revoke a live link; answers whether one was live. */
+export async function revokeSnapshotShare(snapshot: SnapshotShareRow): Promise<boolean> {
+  if (!snapshot.shareToken || snapshot.shareRevokedAt) return false;
+  await prisma.snapshot.update({
+    where: { id: snapshot.id },
+    data: { shareRevokedAt: new Date() },
+  });
+  return true;
+}
