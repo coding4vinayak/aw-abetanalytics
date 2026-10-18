@@ -107,6 +107,16 @@ model Snapshot {
   result      Json
   createdAt   DateTime @default(now())
 
+  // The read-only public link, if this number was ever shared. The token is a
+  // capability: whoever holds the URL can read the frozen number and nothing
+  // else. `shareRevokedAt` is kept rather than nulling the token so a revoked
+  // link stays dead even after the same token is (impossibly) guessed again —
+  // the read path filters on it. Sharing again mints a fresh token, which is
+  // what kills the previous link.
+  shareToken     String?   @unique
+  shareCreatedAt DateTime?
+  shareRevokedAt DateTime?
+
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   metric    Metric    @relation(fields: [metricId], references: [id], onDelete: Cascade)
 

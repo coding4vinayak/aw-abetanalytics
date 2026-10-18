@@ -2,6 +2,8 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { BreakdownButton } from "@/components/breakdown-modal";
+import { ShareSnapshot } from "@/components/share-snapshot";
+import { shareUrl } from "@/lib/snapshot-share";
 import { ManageBillingButton } from "@/components/manage-billing";
 import { resolveWorkspace } from "@/lib/resolve-workspace";
 import { signOut } from "@/app/auth-actions";
@@ -253,13 +255,23 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                         </td>
                         <td className="py-3 text-right">
                           {session && latest && (
-                            <BreakdownButton
-                              metricId={m.id}
-                              name={m.name}
-                              kind={m.kind}
-                              rangeStart={new Date(latest.rangeStart).toISOString()}
-                              rangeEnd={new Date(latest.rangeEnd).toISOString()}
-                            />
+                            <div className="flex flex-col items-end gap-2">
+                              <BreakdownButton
+                                metricId={m.id}
+                                name={m.name}
+                                kind={m.kind}
+                                rangeStart={new Date(latest.rangeStart).toISOString()}
+                                rangeEnd={new Date(latest.rangeEnd).toISOString()}
+                              />
+                              <ShareSnapshot
+                                snapshotId={latest.id}
+                                initialUrl={
+                                  latest.shareToken && !latest.shareRevokedAt
+                                    ? shareUrl(latest.shareToken)
+                                    : null
+                                }
+                              />
+                            </div>
                           )}
                         </td>
                       </tr>
