@@ -9,6 +9,27 @@ export function readMetricConfig(raw: unknown): MetricConfig {
   return asRecord(raw) as unknown as MetricConfig;
 }
 
+/** The documented per-read cap (README, Limits): past it, narrow the range. */
+export const EVENT_READ_LIMIT = 50000;
+
+/**
+ * Refuse a set larger than the documented cap instead of quietly computing on
+ * the first 50,000.
+ *
+ * `take: 50000` used to silently undercount — a range holding 50,001 events
+ * produced a board number of 50,000 with nothing anywhere saying a row was
+ * missing. A number that is wrong and confident is worse than an error that
+ * says how to fix it, which is the README's own advice.
+ */
+export function assertWithinReadLimit<T>(rows: T[]): T[] {
+  if (rows.length > EVENT_READ_LIMIT) {
+    throw new Error(
+      `range holds more than ${EVENT_READ_LIMIT} events — narrow the range or shard by workspace`,
+    );
+  }
+  return rows;
+}
+
 export async function loadEvents(
   workspaceId: string,
   start: Date,
@@ -17,9 +38,10 @@ export async function loadEvents(
   const rows = await prisma.event.findMany({
     where: { workspaceId, occurredAt: { gte: start, lt: end } },
     orderBy: { occurredAt: "asc" },
-    take: 50000,
+    // One past the cap: seeing that row is what makes the refusal possible.
+    take: EVENT_READ_LIMIT + 1,
   });
-  return rows.map((r) => ({
+  return assertWithinReadLimit(rows).map((r) => ({
     type: r.type,
     occurredAt: r.occurredAt,
     dimensions: asRecord(r.dimensions),

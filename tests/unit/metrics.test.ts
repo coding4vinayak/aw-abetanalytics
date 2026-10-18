@@ -110,6 +110,38 @@ describe("metricHeadline", () => {
       1,
     );
   });
+
+  it("keeps a no-data funnel quiet — an empty window is not \"0% converted\"", () => {
+    // Nobody entered step one. Returning 0 here made every `lt` rule fire on
+    // nothing, the opposite of the README's "a null headline (no data) stays
+    // quiet rather than firing on nothing".
+    assert.equal(
+      metricHeadline({
+        kind: "funnel",
+        subjects: 0,
+        steps: [
+          { event: "visit", count: 0, rateFromFirst: 0, rateFromPrev: 1 },
+          { event: "pay", count: 0, rateFromFirst: 0, rateFromPrev: 0 },
+        ],
+      }),
+      null,
+    );
+  });
+
+  it("still reports a real collapse — entrants who never convert stay 0", () => {
+    // Four people entered; nobody paid. That is a 0 worth waking someone for.
+    assert.equal(
+      metricHeadline({
+        kind: "funnel",
+        subjects: 4,
+        steps: [
+          { event: "visit", count: 4, rateFromFirst: 1, rateFromPrev: 1 },
+          { event: "pay", count: 0, rateFromFirst: 0, rateFromPrev: 0 },
+        ],
+      }),
+      0,
+    );
+  });
 });
 
 describe("checkThreshold", () => {
