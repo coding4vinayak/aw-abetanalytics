@@ -4,30 +4,10 @@ import { asInputJson, asRecord } from "./json";
 import { computeMetric, metricHeadline, matchesMetric, type MetricConfig, type MetricEvent, type MetricKind } from "./metrics";
 import { evaluateAlertRules } from "./alerts";
 import { triggerWebhooks } from "./webhooks";
+import { MAX_METRIC_EVENTS, assertWindowComplete } from "./event-window";
 
 export function readMetricConfig(raw: unknown): MetricConfig {
   return asRecord(raw) as unknown as MetricConfig;
-}
-
-/** The documented per-read cap (README, Limits): past it, narrow the range. */
-export const EVENT_READ_LIMIT = 50000;
-
-/**
- * Refuse a set larger than the documented cap instead of quietly computing on
- * the first 50,000.
- *
- * `take: 50000` used to silently undercount — a range holding 50,001 events
- * produced a board number of 50,000 with nothing anywhere saying a row was
- * missing. A number that is wrong and confident is worse than an error that
- * says how to fix it, which is the README's own advice.
- */
-export function assertWithinReadLimit<T>(rows: T[]): T[] {
-  if (rows.length > EVENT_READ_LIMIT) {
-    throw new Error(
-      `range holds more than ${EVENT_READ_LIMIT} events — narrow the range or shard by workspace`,
-    );
-  }
-  return rows;
 }
 
 export async function loadEvents(
@@ -37,11 +17,13 @@ export async function loadEvents(
 ): Promise<MetricEvent[]> {
   const rows = await prisma.event.findMany({
     where: { workspaceId, occurredAt: { gte: start, lt: end } },
+    // One past the bound: the extra row is what distinguishes "exactly at the
+    // cap" from "there were more", and the latter must not be answered.
     orderBy: { occurredAt: "asc" },
-    // One past the cap: seeing that row is what makes the refusal possible.
-    take: EVENT_READ_LIMIT + 1,
+    take: MAX_METRIC_EVENTS + 1,
   });
-  return assertWithinReadLimit(rows).map((r) => ({
+  assertWindowComplete(rows.length);
+  return rows.map((r) => ({
     type: r.type,
     occurredAt: r.occurredAt,
     dimensions: asRecord(r.dimensions),
