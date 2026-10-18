@@ -60,3 +60,20 @@ describe("the public read enforces revocation in one place", () => {
     assert.equal(/prisma/.test(page), false, "the page must not reach the database directly");
   });
 });
+
+describe("the two doors share one implementation", () => {
+  it("the session action and the API route both mint/revoke through the lib", () => {
+    const action = readFileSync(new URL("../../src/app/share-actions.ts", import.meta.url), "utf8");
+    const route = readFileSync(
+      new URL("../../src/app/api/snapshots/[id]/share/route.ts", import.meta.url),
+      "utf8",
+    );
+    for (const src of [action, route]) {
+      assert.ok(src.includes("mintSnapshotShare"), "minting must go through the shared lib");
+      assert.ok(src.includes("revokeSnapshotShare"), "revoking must go through the shared lib");
+    }
+    // Exactly one token generator, and the API route is key-authenticated.
+    assert.equal(/newShareToken/.test(action + route), false);
+    assert.ok(route.includes("withAuth("), "the API route must require a key");
+  });
+});
