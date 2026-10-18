@@ -43,6 +43,11 @@ what the board agreed this week — proven by the smoke flow in this repo's
 history (rename → snapshot still carries the old name). Pass `sync:false` to
 enqueue large backfills on the `snapshots` queue instead.
 
+A range that holds more than 50,000 events is refused with `422` rather than
+answered from the first 50,000 rows: a number read from part of a window is not
+the metric, and no field on a snapshot would say so. Preview and breakdown read
+through the same bound.
+
 ## Accounts (browser)
 
 Machine callers authenticate with an API key above. Humans sign in:
@@ -298,5 +303,7 @@ failed job is kept, capped, as the only surviving record of its payload (the lea
 convention #61, ported #64). The queue keeps its bare name:
 `bull:snapshots:*` already holds jobs, and renaming would orphan them.
 Postgres is the runtime provider since `chore/postgres-switch` (provider switch,
-fresh migration history, regenerate — the abetConnect recipe). Events cap at 50k rows per compute and
-50k per snapshot read; past that, narrow the range or shard by workspace.
+fresh migration history, regenerate — the abetConnect recipe). Events cap at 50,000 rows per compute
+and per snapshot read. A range that holds more is refused with `422` (preview,
+snapshot and breakdown alike) rather than answered from a truncated window;
+past that, narrow the range or shard by workspace.

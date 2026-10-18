@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { withAuth, assertOwns } from "@/lib/apikeys";
 import { prisma } from "@/lib/db";
 import { asInputJson } from "@/lib/json";
-import { validateMetric, readMetricConfig } from "@/lib/snapshots";
+import { validateMetric, readMetricConfig, loadEvents } from "@/lib/snapshots";
 import { computeMetric, type MetricKind } from "@/lib/metrics";
 import { readJson, validateBody } from "@/lib/validate";
 import { METRIC_UPDATE } from "@/lib/fields";
@@ -30,20 +30,18 @@ async function GET_impl(request: Request, { params }: { params: Promise<{ id: st
   if (Number.isNaN(rangeStart.getTime()) || Number.isNaN(rangeEnd.getTime())) {
     return NextResponse.json({ error: "invalid range" }, { status: 422 });
   }
-  const rows = await prisma.event.findMany({
-    where: { workspaceId: metric.workspaceId, occurredAt: { gte: rangeStart, lt: rangeEnd } },
-    orderBy: { occurredAt: "asc" },
-    take: 50000,
-  });
+  // Same rule as POST /api/snapshots: a backwards or zero-length range has no
+  // headline number, and preview must not be the place that pretends it does.
+  if (rangeEnd <= rangeStart) {
+    return NextResponse.json({ error: "rangeEnd must be after rangeStart" }, { status: 422 });
+  }
+  // Shared with snapshots so preview and a frozen number are computed from the
+  // same bounded read — including the refusal when the range exceeds the bound.
+  const events = await loadEvents(metric.workspaceId, rangeStart, rangeEnd);
   const result = computeMetric(
     metric.kind as MetricKind,
     readMetricConfig(metric.config),
-    rows.map((r) => ({
-      type: r.type,
-      occurredAt: r.occurredAt,
-      dimensions: (r.dimensions ?? {}) as Record<string, unknown>,
-      value: r.value,
-    })),
+    events,
     { start: rangeStart, end: rangeEnd },
   );
   return NextResponse.json({ metric, preview: result });

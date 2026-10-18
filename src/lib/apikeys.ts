@@ -1,6 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { prisma } from "./db";
 import { classifyWorkspaceClaim } from "./ai-actor";
+import { EventWindowTooLargeError } from "./event-window";
 
 /** Key prefix for this product, e.g. "lg_live_". Visible in the string itself. */
 export const KEY_PREFIX = "an_live_";
@@ -145,6 +146,13 @@ export function withAuth<T extends unknown[]>(
     } catch (error) {
       if (error instanceof ApiKeyError) {
         return Response.json({ error: error.message }, { status: error.status });
+      }
+      // A range too large to read is a client-fixable request (narrow it), not
+      // a server fault. Without this the preview and breakdown routes would
+      // turn it into a 500, which tells a caller to retry the same oversized
+      // request rather than to change it.
+      if (error instanceof EventWindowTooLargeError) {
+        return Response.json({ error: error.message }, { status: 422 });
       }
       const conflict = conflictFor(error);
       if (conflict) return Response.json(conflict.body, { status: conflict.status });

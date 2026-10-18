@@ -4,6 +4,7 @@ import { asInputJson, asRecord } from "./json";
 import { computeMetric, metricHeadline, type MetricConfig, type MetricEvent, type MetricKind } from "./metrics";
 import { evaluateAlertRules } from "./alerts";
 import { triggerWebhooks } from "./webhooks";
+import { MAX_METRIC_EVENTS, assertWindowComplete } from "./event-window";
 
 export function readMetricConfig(raw: unknown): MetricConfig {
   return asRecord(raw) as unknown as MetricConfig;
@@ -16,9 +17,12 @@ export async function loadEvents(
 ): Promise<MetricEvent[]> {
   const rows = await prisma.event.findMany({
     where: { workspaceId, occurredAt: { gte: start, lt: end } },
+    // One past the bound: the extra row is what distinguishes "exactly at the
+    // cap" from "there were more", and the latter must not be answered.
     orderBy: { occurredAt: "asc" },
-    take: 50000,
+    take: MAX_METRIC_EVENTS + 1,
   });
+  assertWindowComplete(rows.length);
   return rows.map((r) => ({
     type: r.type,
     occurredAt: r.occurredAt,
