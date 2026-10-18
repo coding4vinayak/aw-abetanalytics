@@ -154,6 +154,13 @@ export function metricHeadline(result: MetricResult): number | null {
     case "avg":
       return result.value;
     case "funnel": {
+      // Nobody in step one is "no data", not "0% converted". Returning 0 here
+      // made every `lt` rule fire on an empty window — the exact opposite of
+      // the README's "a null headline (no data) stays quiet rather than firing
+      // on nothing". A funnel that had entrants and still converted at 0 is a
+      // real collapse and stays 0.
+      const first = result.steps[0];
+      if (!first || first.count === 0) return null;
       const last = result.steps[result.steps.length - 1];
       return last ? last.rateFromFirst : null;
     }
