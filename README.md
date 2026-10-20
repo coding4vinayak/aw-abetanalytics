@@ -34,6 +34,41 @@ Filters are dimension equalities (`plan: "pro"`) or any-of lists
 Definitions are validated at creation: a broken metric fails with 422 today,
 not at the first snapshot a month later when nobody remembers writing it.
 
+## First run (example data)
+
+A new workspace is empty, and the dashboard used to say so with advice for
+somebody who already writes code: *"No metrics yet. Create one via `POST
+/api/metrics`"*. On a **card-up 14-day trial** that is a churn mechanism — the
+buyer pays attention to an empty screen, never sees the product work, and the
+card is charged for the privilege.
+
+So the dashboard now offers one click:
+
+```
+POST   /api/example-data      # load a sample week (session or API key)
+DELETE /api/example-data      # take it away again
+```
+
+It loads a real week — two metrics, 223 events, three frozen snapshots —
+written through the same tables the API writes, so the number on the screen is
+computed by the same engine that computes a customer's number. From there the
+whole product works on it: the breakdown by channel, the read-only share link,
+the weekly report, the "what changed?" panel.
+
+Three rules keep it from being anything but example data:
+
+- **It is labelled.** The metrics are named `Example: …` and the card says so
+  on the dashboard, in a banner, while it is loaded.
+- **It is removable in one click, and the removal is surgical** — the two
+  `example_*` event types and the two example metrics, by id. A customer's own
+  events are never touched, and their workspace is empty again afterwards.
+- **It is idempotent.** A second call finds the example already there and
+  changes nothing, so a double-click cannot double the events.
+
+The door takes a **session or an API key**: the prospect who signs up on the
+web and the prospect who integrates the API are the same buyer, and neither
+should wait for the other to see the product work.
+
 ## Snapshots
 
 `POST /api/snapshots { metricId, rangeStart, rangeEnd }` computes inline and
