@@ -15,6 +15,14 @@ export default function Page() {
         <p className="mt-2 text-gray-600">Newest first. Breaking changes are marked <strong>BREAKING</strong> and get 30 days&apos; notice here before they ship.</p>
         <div className="mt-8 space-y-8 border-l-2 border-blue-600 pl-6">
           <div>
+            <p className="text-sm text-gray-600">October 2026</p>
+            <h2 className="text-lg font-bold">v1.1.0 — Take your numbers with you</h2>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-gray-600">
+              <li>Owners and admins can download a board-pack CSV of every frozen snapshot and funnel, a workspace JSON with metrics, snapshots, dashboards, alerts and team, and a streamed CSV of raw events.</li>
+              <li>Exports are session-authenticated and owner/admin only. They leave credentials behind: no API keys, invitation tokens, signing secrets or Stripe ids.</li>
+            </ul>
+          </div>
+          <div>
             <p className="text-sm text-gray-600">September 2026</p>
             <h2 className="text-lg font-bold">v1.0.0 — Initial public release</h2>
             <ul className="mt-2 list-disc space-y-1 pl-5 text-gray-600">

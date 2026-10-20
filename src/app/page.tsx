@@ -80,7 +80,7 @@ export default function Home() {
           <div><p className="font-semibold text-gray-900">Is there a trial?</p><p className="mt-1 text-gray-600">It is included — open the live demo with 102 events, 3 metrics, and a dashboard. No card, ever.</p></div>
           <div><p className="font-semibold text-gray-900">What if we change a metric later?</p><p className="mt-1 text-gray-600">Snapshots keep the definition as-run, so history never rewrites itself.</p></div>
           <div><p className="font-semibold text-gray-900">How is this different from a dashboard tool?</p><p className="mt-1 text-gray-600">Dashboards show queries; AbetAnalytics freezes answers. The snapshot is the contract.</p></div>
-          <div><p className="font-semibold text-gray-900">Can I export the numbers?</p><p className="mt-1 text-gray-600">Yes — metrics, snapshots, and funnels all export for board packs.</p></div>
+          <div><p className="font-semibold text-gray-900">Can I export the numbers?</p><p className="mt-1 text-gray-600">Yes — owners and admins can download a board-pack CSV with every frozen snapshot and funnel, plus a workspace JSON with the metric definitions and dashboards.</p></div>
           </div>
         </section>
         <section className="mx-auto max-w-4xl px-6 pb-16 text-center">

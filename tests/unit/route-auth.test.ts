@@ -29,10 +29,10 @@ import { collectHandlers, AUTH_NAME, unguardedWrites, writeSites, readSites, una
 
 // Set from a measured count, deliberately wide. MIN catches a scanner that
 // silently stopped finding handlers (the failure mode that hid two anonymous
-// routes for this long); MAX catches one that started double-counting. The 24 is
-// not a guess: `collectHandlers()` over this app's 13 route files answers 24
-// today — 9 GET, 9 POST, 3 PATCH, 3 DELETE — the 21 §8.14 recorded when the auth
-// audit walked the then-10 files, plus the three billing routes.
+// routes for this long); MAX catches one that started double-counting. The floor
+// is 24, far below `collectHandlers()`'s 35 over this app's 20 route files today
+// — 14 GET, 12 POST, 4 PATCH, 5 DELETE — because a scanner that stopped seeing
+// a whole file should fail, not because 24 is the inventory.
 const MIN_HANDLERS = 24;
 const MAX_HANDLERS = 51;
 

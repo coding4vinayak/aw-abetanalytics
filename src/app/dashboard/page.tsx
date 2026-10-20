@@ -4,6 +4,7 @@ import { DashboardShell } from "@/components/dashboard-shell";
 import { BreakdownButton } from "@/components/breakdown-modal";
 import { ShareSnapshot } from "@/components/share-snapshot";
 import { shareUrl } from "@/lib/snapshot-share";
+import { canManageRoles } from "@/lib/roles";
 import { ManageBillingButton } from "@/components/manage-billing";
 import { resolveWorkspace } from "@/lib/resolve-workspace";
 import { signOut } from "@/app/auth-actions";
@@ -282,6 +283,44 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             </div>
           )}
         </div>
+
+        {session && canManageRoles(session.role) && (
+          <div className="mb-6 rounded-2xl bg-white p-6 shadow-sm">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="text-lg font-bold text-gray-900">Export</h2>
+              <p className="text-xs text-gray-500">Owners and admins</p>
+            </div>
+            <p className="mt-1 max-w-3xl text-sm text-gray-600">
+              The board pack is every frozen snapshot — funnels included — with the definition and
+              result that produced it, one row each. The workspace export carries metrics,
+              snapshots, dashboards, alerts and team as JSON. Raw events stream separately so a
+              large workspace never has to fit in memory.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <a
+                href="/api/export/snapshots"
+                className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-700"
+              >
+                Download board pack (CSV)
+              </a>
+              <a
+                href="/api/export"
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+              >
+                Download workspace (JSON)
+              </a>
+              <a
+                href="/api/export/events"
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+              >
+                Download raw events (CSV)
+              </a>
+            </div>
+            <p className="mt-3 text-xs text-gray-500">
+              Signing secrets, API keys and invitation tokens are never included.
+            </p>
+          </div>
+        )}
 
         <div className="bg-white rounded-2xl shadow-sm p-6">
           <h2 className="text-lg font-bold text-gray-900 mb-4">Dashboards</h2>
