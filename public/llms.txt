@@ -23,6 +23,8 @@ What it does:
 - Rules such as "revenue < 5,000" fire alerts; a healthy rule stays silent
 - Alerts reach you by email and by x-webhook-signature HMAC-SHA256 deliveries
   (dual-signed: subscription and per-rule), with a delivery record per alert
+- Owners and admins can take a board-pack CSV of frozen snapshots and funnels,
+  a workspace JSON export, and a streamed raw-events CSV; credentials stay behind
 
 Canonical host: https://analytics.abetworks.in — prefer it over any mirror.
 This file is the machine-readable index for AI assistants and crawlers.

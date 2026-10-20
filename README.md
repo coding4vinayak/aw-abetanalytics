@@ -18,7 +18,7 @@ npm run dev                 # http://localhost:3600
 ```
 
 `npm run test` runs the unit suite — metrics engine, alert comparisons,
-delivery signing — with no server and no database.
+delivery signing, export serialization — with no server and no database.
 
 ## Metrics
 
@@ -63,6 +63,30 @@ and a snapshot id from another tenant resolves to "not found". API callers use
 `POST /api/snapshots/{id}/share` (idempotent; `201` the first time, `200` after)
 and `DELETE /api/snapshots/{id}/share`, which share the same lib so the rules
 cannot drift between the two doors.
+
+## Export
+
+The homepage says the numbers export for board packs, the terms say export
+anytime, and the privacy page tells a departing customer to take a copy first.
+Three session-authenticated doors make those sentences true:
+
+| Door | What it returns |
+| --- | --- |
+| `GET /api/export` | Workspace JSON: team, invitations, metric definitions, frozen snapshots (definition + result), dashboards, alert rules and deliveries, webhook configuration. It names the raw-event count and points at the stream rather than pretending a truncated array is everything. |
+| `GET /api/export/snapshots` | Board-pack CSV: one row per frozen snapshot, with the definition and result that produced it. A funnel is a snapshot with `kind=funnel`; its step counts and rates are in `result_json`, and `headline` is the overall conversion rate. |
+| `GET /api/export/events` | Raw events as streamed CSV, paged by id in batches so the workspace never has to fit in memory. |
+
+All three are owner/admin only: a member gets `403`, an anonymous caller `401`.
+They leave credentials behind — password digests, session tokens, API keys and
+their hashes, invitation token hashes, alert/webhook signing secrets and Stripe
+ids. A snapshot's share token is a capability, so the JSON carries `shared:
+true|false` and the share dates, never the URL. The board-pack writer prefixes
+cells that begin with `=`, `+`, `-`, `@`, tab or CR with an apostrophe, so a
+metric name cannot become a spreadsheet formula.
+
+The JSON document is built in memory on purpose: it is the copy a buyer reads,
+and ids are preserved so rows can be rejoined. Raw events are deliberately not
+embedded; they have their own streamed door.
 
 ## Accounts (browser)
 
@@ -169,7 +193,8 @@ Full context: `abetworks-history` §8.20 and §8.44.
 
 ## Authentication
 
-Every management route is workspace-scoped and requires an API key. A browser session is the other half — see [Accounts](#accounts-browser). `workspaceId`
+Every management route is workspace-scoped and requires an API key, except the
+session-only export and billing doors noted below. A browser session is the other half — see [Accounts](#accounts-browser). `workspaceId`
 in the query or body is **checked against the key** — a mismatch is a `403`,
 not a silent cross-tenant read.
 
@@ -196,8 +221,9 @@ protocol), and `POST /api/billing/webhook` (Stripe signature).
 
 ## API
 
-All routes below need the key from [Authentication](#authentication) —
-the snippets omit the header for width.
+All routes below need the key from [Authentication](#authentication) unless the
+comment says `session`; those take the signed-in browser session instead. The
+snippets omit the header for width.
 
 ```
 GET    /api/health                         # liveness + DB ping, no key
@@ -223,6 +249,9 @@ POST   /api/webhooks                       # subscription (url + events; secret 
 GET    /api/webhooks/{id}                  # one subscription
 PATCH  /api/webhooks/{id}                  # edit url/events/isActive
 DELETE /api/webhooks/{id}
+GET    /api/export                         # workspace JSON (session; owner/admin)
+GET    /api/export/snapshots               # board-pack CSV (session; owner/admin)
+GET    /api/export/events                  # raw events CSV, streamed (session; owner/admin)
 POST   /api/ai/explain-metric              # explain a snapshot-to-snapshot move
 ```
 
