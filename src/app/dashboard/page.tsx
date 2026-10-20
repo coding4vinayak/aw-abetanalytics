@@ -4,6 +4,8 @@ import { DashboardShell } from "@/components/dashboard-shell";
 import { BreakdownButton } from "@/components/breakdown-modal";
 import { ShareSnapshot } from "@/components/share-snapshot";
 import { ReportScheduler } from "@/components/report-scheduler";
+import { ExampleDataCard } from "@/components/example-data-card";
+import { EXAMPLE_REVENUE_METRIC } from "@/lib/example-data";
 import { reportPreview } from "@/lib/reports";
 import { shareUrl } from "@/lib/snapshot-share";
 import { canManageRoles } from "@/lib/roles";
@@ -193,6 +195,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       : [],
   ]);
 
+  // Whether the example week is in the workspace: the panel then offers the
+  // way *out* of it rather than the way in.
+  const exampleLoaded = metrics.some((m) => m.name === EXAMPLE_REVENUE_METRIC);
+
   return (
     <DashboardShell
       product="AbetAnalytics"
@@ -227,8 +233,19 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
         <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
           <h2 className="text-lg font-bold text-gray-900 mb-4">Metrics, latest snapshot each</h2>
+          {session && (
+            <div className="mb-4">
+              <ExampleDataCard
+                loaded={exampleLoaded}
+                metricName={EXAMPLE_REVENUE_METRIC}
+              />
+            </div>
+          )}
           {metrics.length === 0 ? (
-            <p className="text-sm text-gray-500">No metrics yet. Create one via <code>POST /api/metrics</code>.</p>
+            <p className="text-sm text-gray-500">
+              No metrics yet. Create one via <code>POST /api/metrics</code> — or load the example
+              week above and see the product work first.
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
