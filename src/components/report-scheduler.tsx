@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useSyncExternalStore, useTransition } from "react";
 import {
   createReportAction,
   deleteReportAction,
@@ -83,24 +83,22 @@ export function ReportScheduler({
   const [email, setEmail] = useState("");
   const [dayOfWeek, setDayOfWeek] = useState("1");
   const [hour, setHour] = useState("8");
-  const [timezone, setTimezone] = useState("UTC");
   const [windowDays, setWindowDays] = useState("7");
   const [message, setMessage] = useState<{ tone: "ok" | "bad"; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
 
   // The browser's own zone is the one the customer means, so it is offered
-  // first and pre-selected. It is read after mount on purpose: the server
-  // cannot know it, and guessing the server's zone would be wrong. Reading it
-  // during the first render would also make the server's HTML and the
-  // browser's disagree.
-  const [browserZone, setBrowserZone] = useState<string | null>(null);
-  useEffect(() => {
-    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (zone) {
-      setBrowserZone(zone);
-      setTimezone(zone);
-    }
-  }, []);
+  // first and pre-selected. It is the one value here that differs between the
+  // server (which has no browser zone) and the client, and `useSyncExternalStore`
+  // is how React reads such a value: it hydrates with the server snapshot and
+  // re-renders with the browser's — no mismatch, and no effect that sets state.
+  const browserZone = useSyncExternalStore(
+    () => () => {},
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone,
+    () => "UTC",
+  );
+  const [chosenZone, setChosenZone] = useState<string | null>(null);
+  const timezone = chosenZone ?? browserZone;
   const zoneOptions = browserZone && !ZONES.includes(browserZone) ? [browserZone, ...ZONES] : ZONES;
 
   function schedule() {
@@ -200,7 +198,7 @@ export function ReportScheduler({
               Timezone
               <select
                 value={timezone}
-                onChange={(e) => setTimezone(e.target.value)}
+                onChange={(e) => setChosenZone(e.target.value)}
                 className="mt-1 w-full rounded-md border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-900"
               >
                 {zoneOptions.map((z) => (
