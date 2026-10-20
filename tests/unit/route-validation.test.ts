@@ -42,13 +42,17 @@ const UNVALIDATED: Record<string, string[]> = {
   "src/app/api/billing/portal/route.ts": ["POST"],
 };
 
-// Measured: `collectHandlers()` over the twenty route files answers 35 handlers,
-// of which 14 read a JSON body. The billing webhook POST reads raw text for its
-// signature, and the GETs and DELETEs take their input from the path and the
-// query string — different boundaries, not this rule's business.
+// Measured: `collectHandlers()` over the twenty-three route files answers 39
+// handlers, of which 15 read a JSON body. The billing webhook POST reads raw
+// text for its signature, and the GETs and DELETEs take their input from the
+// path and the query string — different boundaries, not this rule's business.
+//
+// The count moved from 14 to 15 when the weekly-report routes landed (18 Oct):
+// `POST /api/reports` reads a body, and it validates it against the
+// `REPORT_CREATE` table in `lib/fields.ts` like every other body reader.
 const MIN_HANDLERS = 24;
 const MAX_HANDLERS = 51;
-const EXPECTED_BODY_READERS = 14;
+const EXPECTED_BODY_READERS = 15;
 
 function readers() {
   return collectHandlers().filter((h) => READS_A_BODY.test(h.body));

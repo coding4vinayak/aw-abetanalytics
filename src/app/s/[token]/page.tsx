@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { findLiveSharedSnapshot, isShareToken } from "@/lib/snapshot-share";
-import { metricHeadline, type MetricResult } from "@/lib/metrics";
+import { formatMetricHeadline, type MetricResult } from "@/lib/metrics";
 
 export const dynamic = "force-dynamic";
 
@@ -24,13 +24,6 @@ type ShareDefinition = {
     steps?: { event?: string }[];
   };
 };
-
-function headline(result: MetricResult): string {
-  const value = metricHeadline(result);
-  if (value === null) return "—";
-  if (result.kind === "funnel") return `${(value * 100).toFixed(1)}%`;
-  return Number.isInteger(value) ? value.toLocaleString() : value.toFixed(1);
-}
 
 function day(value: Date | string): string {
   const date = value instanceof Date ? value : new Date(value);
@@ -89,7 +82,7 @@ export default async function SharedSnapshotPage({
         <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
           {definition.name ?? "Metric"}
         </p>
-        <p className="mt-2 text-5xl font-bold text-gray-900">{headline(result)}</p>
+        <p className="mt-2 text-5xl font-bold text-gray-900">{formatMetricHeadline(result)}</p>
         <p className="mt-2 text-sm text-gray-500">
           Frozen {day(snapshot.createdAt)} · {facts[1][1]}
         </p>

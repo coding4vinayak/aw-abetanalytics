@@ -48,8 +48,19 @@ export function validateMetric(kind: string, config: MetricConfig): string | nul
  * Compute a metric now (preview, no persistence) or freeze it as a snapshot.
  * Snapshots store the definition as-run: renaming the metric or changing its
  * config next week cannot rewrite what the board agreed this week.
+ *
+ * `fireAlerts: false` freezes the number without evaluating the alert rules.
+ * The weekly report uses it, and the reason is a duplicate page: the report
+ * re-freezes a window the customer may already have snapshotted, and
+ * re-evaluating the same rules against the same number would page them a
+ * second time for a number they have already been told about.
  */
-export async function takeSnapshot(metricId: string, rangeStart: Date, rangeEnd: Date) {
+export async function takeSnapshot(
+  metricId: string,
+  rangeStart: Date,
+  rangeEnd: Date,
+  options: { fireAlerts?: boolean } = {},
+) {
   const metric = await prisma.metric.findUnique({ where: { id: metricId } });
   if (!metric) throw new Error("Metric not found");
   if (metric.status !== "ACTIVE") throw new Error(`Metric is ${metric.status}`);
@@ -96,7 +107,9 @@ export async function takeSnapshot(metricId: string, rangeStart: Date, rangeEnd:
     headline,
   });
 
-  const alertsFired = await evaluateAlertRules(metric.workspaceId, metric.id, snapshot.id, headline);
+  const alertsFired = options.fireAlerts === false
+    ? []
+    : await evaluateAlertRules(metric.workspaceId, metric.id, snapshot.id, headline);
 
   return { snapshot, result, headline, alertsFired };
 }

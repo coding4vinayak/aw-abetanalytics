@@ -413,3 +413,69 @@ export function renderWinbackEmail(data: {
     ),
   };
 }
+
+/**
+ * The weekly report: the frozen number, and the link that proves it.
+ *
+ * Two things make this email worth opening, and the template has to carry
+ * both. The number itself, big, because the whole point of a weekly report is
+ * that the reader does not have to go and look. And the *definition* next to
+ * it, because a number without its definition is a number nobody can repeat —
+ * "3,820" means nothing unless you can see it was the sum of `purchase.value`
+ * over a named range.
+ *
+ * The link is the same revocable, read-only one the dashboard hands out, so the
+ * email can be forwarded to the person who has to see the number, and they will
+ * read the frozen value and its definition — not a live dashboard they would
+ * have to be given an account to open.
+ */
+export function renderWeeklyReportEmail(data: {
+  product: string;
+  metricName: string;
+  headline: string;
+  rangeStart: Date;
+  rangeEnd: Date;
+  /** One line, as-run: "sum of purchase.value". */
+  definition: string;
+  shareUrl: string;
+}): { subject: string; html: string; text: string } {
+  const day = (d: Date) => new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(d);
+  const range = `${day(data.rangeStart)} → ${day(data.rangeEnd)}`;
+
+  const text = [
+    `${data.metricName}: ${data.headline}`,
+    "",
+    `Range: ${range}`,
+    `Definition: ${data.definition}`,
+    "",
+    `Open the frozen number: ${data.shareUrl}`,
+    "",
+    "This number was frozen when the report was sent. The link is read-only, and you can share it with anyone who should see it — they will see the same frozen number and the same definition, with no account needed.",
+    "",
+    "If you did not ask for this report, you can ignore this message and nothing changes.",
+  ].join("\n");
+
+  const html = `<!doctype html>
+<html><body style="margin:0;background:#f9fafb;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#111827">
+  <div style="max-width:520px;margin:0 auto;padding:32px 16px">
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:32px">
+      <p style="margin:0 0 4px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#9ca3af">Abetworks</p>
+      <h1 style="margin:0 0 24px;font-size:20px;line-height:1.3">${escapeHtml(data.product)}</h1>
+      <p style="margin:0 0 4px;font-size:13px;color:#6b7280">${escapeHtml(data.metricName)}</p>
+      <p style="margin:0 0 8px;font-size:40px;font-weight:700;letter-spacing:-0.02em;line-height:1.1">${escapeHtml(data.headline)}</p>
+      <p style="margin:0 0 24px;font-size:13px;color:#6b7280">${escapeHtml(range)}</p>
+      <table style="width:100%;border-collapse:collapse;margin:0 0 24px;font-size:13px">
+        <tr>
+          <td style="padding:8px 0;border-top:1px solid #f3f4f6;color:#6b7280">Definition</td>
+          <td style="padding:8px 0;border-top:1px solid #f3f4f6;text-align:right;color:#111827">${escapeHtml(data.definition)}</td>
+        </tr>
+      </table>
+      <a href="${escapeHtml(data.shareUrl)}" style="display:inline-block;background:#111827;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-size:14px;font-weight:600">Open the frozen number</a>
+      <p style="margin:24px 0 0;font-size:12px;line-height:1.6;color:#6b7280;word-break:break-all">Or paste this into your browser:<br>${escapeHtml(data.shareUrl)}</p>
+      <p style="margin:20px 0 0;font-size:12px;line-height:1.6;color:#9ca3af">This number was frozen when the report was sent. The link is read-only, and you can share it with anyone who should see it — they will see the same frozen number and the same definition, with no account needed. If you did not ask for this report, ignore this message and nothing changes.</p>
+    </div>
+  </div>
+</body></html>`;
+
+  return { subject: `${data.metricName} — ${data.headline}`, html, text };
+}

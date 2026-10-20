@@ -57,6 +57,13 @@ export async function enqueue<T extends object>(
 export const SNAPSHOTS_QUEUE = "snapshots";
 
 /**
+ * The weekly-report queue. Product-prefixed, like `billing` and unlike
+ * `snapshots`: this Redis is shared with the rest of the suite, and the prefix
+ * is the only thing that says whose hourly tick these are.
+ */
+export const REPORTS_QUEUE = "abetanalytics-reports";
+
+/**
  * Built on first touch, not at import, because `new Queue()` is not inert. Handed a
  * lazy-connect client it opens that connection on the next tick and writes
  * `bull:<name>:meta` before anything calls `add()`. Measured against this app before
@@ -69,7 +76,7 @@ export const SNAPSHOTS_QUEUE = "snapshots";
  * The name stays exactly where `shared/check-queues.sh` reads it — the first argument
  * of the Queue construction — so memoising does not move the asserted fact.
  */
-const built: { snapshots?: Queue; billing?: Queue } = {};
+const built: { snapshots?: Queue; billing?: Queue; reports?: Queue } = {};
 
 /** Every Worker this process started, so shutdownWorkers() can actually close them. */
 const workers: Worker[] = [];
@@ -106,11 +113,34 @@ export const queues = {
   get billing(): Queue {
     return (built.billing ??= new Queue("abetanalytics-billing", { connection, defaultJobOptions: JOB_RETENTION }));
   },
+  /**
+   * Weekly reports — the queue that decides *when* a frozen number is sent.
+   *
+   * Product-prefixed for the same reason as `billing`: this Redis is shared
+   * with the rest of the suite, and `bull:abetanalytics-reports:*` is the only
+   * thing that says whose hourly tick these are.
+   */
+  get reports(): Queue {
+    return (built.reports ??= new Queue(REPORTS_QUEUE, { connection, defaultJobOptions: JOB_RETENTION }));
+  },
 };
+
+/**
+ * The id of the hourly tick. It is a *scheduler* id, not a job id: BullMQ's
+ * job scheduler keeps one repeatable job per id, so naming it the same on every
+ * boot means a restart re-points the existing schedule instead of adding a
+ * second one. A second tick would not double-send (the schedule row owns the
+ * idempotency), but two ticks are still two things to reason about.
+ */
+export const REPORT_TICK_SCHEDULER_ID = "weekly-report-tick";
+
+/** How often the tick looks for reports that are owed. */
+export const REPORT_TICK_EVERY_MS = 60 * 60 * 1000;
 
 export async function startWorkers() {
   const { takeSnapshot } = await import("./snapshots");
   const { runBillingJob } = await import("./billing-jobs");
+  const { runReportTick } = await import("./reports");
 
   const worker = new Worker(SNAPSHOTS_QUEUE, async (job: Job) => {
     const { metricId, rangeStart, rangeEnd } = job.data as {
@@ -128,6 +158,38 @@ export async function startWorkers() {
   workers.push(new Worker("abetanalytics-billing", async (job: Job) => {
     await runBillingJob(job as Job<TrialNudgeData | CancellationData>);
   }, { connection, concurrency: 1 }));
+
+  // The weekly tick. Concurrency 1 on purpose: a tick walks every schedule and
+  // sends a report each, and two ticks at once would be two racing claimers
+  // over the same rows.
+  workers.push(new Worker(REPORTS_QUEUE, async (job: Job) => {
+    if (job.name === "tick") {
+      const outcome = await runReportTick();
+      if (outcome.sent || outcome.failed) {
+        console.log(
+          `weekly report tick: sent=${outcome.sent} failed=${outcome.failed} skipped=${outcome.skipped}`,
+        );
+      }
+    }
+  }, { connection, concurrency: 1 }));
+
+  // The schedule itself. Registered on boot, because a repeatable job that
+  // only exists in memory dies with the process — and a weekly report that
+  // needs someone to restart the app to arrive is not a weekly report.
+  //
+  // A Redis that is down must not stop the app from serving: the tick simply
+  // does not run until the next boot, and the schedules are still there.
+  try {
+    await queues.reports.upsertJobScheduler(
+      REPORT_TICK_SCHEDULER_ID,
+      { every: REPORT_TICK_EVERY_MS },
+      { name: "tick", data: {} },
+    );
+  } catch (error) {
+    console.error(
+      `weekly report tick not scheduled: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
 
   console.log("AbetAnalytics workers started");
 }

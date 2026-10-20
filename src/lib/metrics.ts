@@ -181,3 +181,18 @@ export function metricHeadline(result: MetricResult): number | null {
     }
   }
 }
+
+/**
+ * The headline as a person reads it: "3,820", "18.4", "22.5%".
+ *
+ * One place, because the dashboard, the shared link and the weekly report all
+ * show the same frozen number, and three copies of a formatting rule is three
+ * chances for the emailed number and the on-screen number to disagree.
+ */
+export function formatMetricHeadline(result: MetricResult): string {
+  const value = metricHeadline(result);
+  if (value === null) return "—";
+  if (result.kind === "funnel") return `${(value * 100).toFixed(1)}%`;
+  if (Number.isInteger(value)) return value.toLocaleString();
+  return value.toFixed(1);
+}
