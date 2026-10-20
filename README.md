@@ -64,6 +64,48 @@ and a snapshot id from another tenant resolves to "not found". API callers use
 and `DELETE /api/snapshots/{id}/share`, which share the same lib so the rules
 cannot drift between the two doors.
 
+### The weekly report
+
+A number that has to be fetched is a number that gets forgotten. The
+**Weekly report** panel schedules the same metric — over the same window,
+frozen with its definition — to be **emailed** to you, with the same read-only
+link the dashboard hands out, so the person who has to see the number can be
+*sent* it.
+
+```
+POST   /api/reports                          # create a schedule
+GET    /api/reports                          # list, with the next send time
+DELETE /api/reports/{id}                     # cancel — deleting the row is the unsubscribe
+POST   /api/reports/{id}/send                # send now, to check the address works
+```
+
+```
+{ "metricId": "…", "email": "board@company.com",
+  "dayOfWeek": 1, "hour": 8, "timezone": "Europe/Berlin", "windowDays": 7 }
+```
+
+Four things are worth knowing about it:
+
+- **The emailed number is a real snapshot** — frozen with the definition as-run,
+  and shared through the same revocable link. The emailed value and the value
+  anyone opens later cannot drift apart.
+- **A report never re-pages.** The alert rules are not evaluated for a
+  report-generated snapshot: the customer may already have snapshotted that
+  window and been paged about it, and a second page for the same number is how
+  a monitoring tool gets muted.
+- **The slot is a wall-clock time in a named zone.** "Every Monday at 08:00" in
+  `Europe/Berlin` stays at 08:00 local across the daylight-saving change; the
+  UTC instant moves, the promise does not. A schedule created *after* its slot
+  waits for the next one.
+- **The schedule owns the idempotency, not Redis.** `lastPeriod` is the
+  occurrence already delivered, and it is compared on the row — so a restart, a
+  second instance, or a retry cannot send the same week twice. A failed send is
+  retried against the same window (three attempts), never a newer one.
+
+The tick is an hourly BullMQ job registered on boot (`abetanalytics-reports`),
+so a report does not need anyone to restart the app to arrive. **Send now**
+does not consume the weekly slot: the real Monday still goes out.
+
 ## Export
 
 The homepage says the numbers export for board packs, the terms say export
@@ -238,6 +280,10 @@ POST   /api/snapshots                      # compute + freeze (+ evaluate alerts
 GET    /api/snapshots?metricId=&workspaceId=
 POST   /api/snapshots/{id}/share              # mint (or return) a read-only link; 201 the first time
 DELETE /api/snapshots/{id}/share              # revoke it — the URL 404s from then on
+GET    /api/reports                          # weekly reports, with the next send time
+POST   /api/reports                          # schedule one (metric, address, day, hour, timezone)
+DELETE /api/reports/{id}                     # cancel — deleting the row is the unsubscribe
+POST   /api/reports/{id}/send                # send now, to check the address works
 POST   /api/metrics/{id}/breakdown         # split movement across a dimension's segments, current vs previous range
 GET    /api/dashboards?workspaceId=        # list
 POST   /api/dashboards                     # create (metricIds must be in-workspace)

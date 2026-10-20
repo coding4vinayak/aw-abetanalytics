@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { BreakdownButton } from "@/components/breakdown-modal";
 import { ShareSnapshot } from "@/components/share-snapshot";
+import { ReportScheduler } from "@/components/report-scheduler";
+import { reportPreview } from "@/lib/reports";
 import { shareUrl } from "@/lib/snapshot-share";
 import { canManageRoles } from "@/lib/roles";
 import { ManageBillingButton } from "@/components/manage-billing";
@@ -12,7 +14,7 @@ import { switchWorkspaceAction } from "@/app/member-actions";
 import { createFirstKey } from "@/app/key-actions";
 import { ApiKeyOnboarding } from "@/components/api-key-onboarding";
 import { AiPanel, type AiField } from "@/components/ai-panel";
-import { metricHeadline } from "@/lib/metrics";
+import { formatMetricHeadline } from "@/lib/metrics";
 import type { MetricResult } from "@/lib/metrics";
 
 export const dynamic = "force-dynamic";
@@ -25,14 +27,6 @@ function Card({ label, value, sub }: { label: string; value: React.ReactNode; su
       {sub && <p className="mt-1 text-xs text-gray-500">{sub}</p>}
     </div>
   );
-}
-
-function formatHeadline(result: MetricResult): string {
-  const h = metricHeadline(result);
-  if (h === null) return "—";
-  if (result.kind === "funnel") return `${(h * 100).toFixed(1)}%`;
-  if (Number.isInteger(h)) return h.toLocaleString();
-  return h.toFixed(1);
 }
 
 type SubscriptionState = {
@@ -174,7 +168,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       })
     : null;
 
-  const [metrics, eventCount, snapshotCount, dashboards, alertRules] = await Promise.all([
+  const [metrics, eventCount, snapshotCount, dashboards, alertRules, reports] = await Promise.all([
     prisma.metric.findMany({
       where: { workspaceId: workspace.id, status: "ACTIVE" },
       include: { snapshots: { orderBy: { createdAt: "desc" }, take: 1 } },
@@ -188,6 +182,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           where: { workspaceId: workspace.id },
           include: { events: { orderBy: { createdAt: "desc" }, take: 5 } },
           orderBy: { updatedAt: "desc" },
+        })
+      : [],
+    session
+      ? prisma.reportSchedule.findMany({
+          where: { workspaceId: workspace.id },
+          include: { metric: { select: { name: true, kind: true } } },
+          orderBy: { createdAt: "asc" },
         })
       : [],
   ]);
@@ -249,7 +250,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                         <td className="py-3 pr-4 font-medium text-gray-900">{m.name}</td>
                         <td className="py-3 pr-4 text-gray-600">{m.kind}</td>
                         <td className="py-3 pr-4 text-gray-900 font-semibold">
-                          {result ? formatHeadline(result) : "—"}
+                          {result ? formatMetricHeadline(result) : "—"}
                         </td>
                         <td className="py-3 text-gray-600">
                           {latest ? new Date(latest.createdAt).toLocaleDateString() : "never"}
@@ -283,6 +284,41 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             </div>
           )}
         </div>
+
+        {session && (
+          <div className="mb-6 bg-white rounded-2xl shadow-sm p-6">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="text-lg font-bold text-gray-900">Weekly report</h2>
+              <p className="text-xs text-gray-500">The frozen number, on its own</p>
+            </div>
+            <p className="mt-1 mb-4 max-w-3xl text-sm text-gray-600">
+              A number that has to be fetched is a number that gets forgotten. Schedule the weekly
+              report and the same metric — over the same window, frozen with its definition — is
+              emailed to you, with a read-only link that anyone can open without an account.
+            </p>
+            <ReportScheduler
+              metrics={metrics.map((m) => ({ id: m.id, name: m.name }))}
+              reports={reports.map((r) => {
+                // Dates do not cross the server/client boundary; the client
+                // formats them in the schedule's own timezone anyway.
+                const preview = reportPreview(r);
+                return {
+                  id: preview.id,
+                  metricId: preview.metricId,
+                  metricName: preview.metricName,
+                  email: preview.email,
+                  dayOfWeek: preview.dayOfWeek,
+                  hour: preview.hour,
+                  timezone: preview.timezone,
+                  windowDays: preview.windowDays,
+                  lastSentAt: preview.lastSentAt ? preview.lastSentAt.toISOString() : null,
+                  lastError: preview.lastError,
+                  nextRunAt: preview.nextRunAt,
+                };
+              })}
+            />
+          </div>
+        )}
 
         {session && canManageRoles(session.role) && (
           <div className="mb-6 rounded-2xl bg-white p-6 shadow-sm">

@@ -31,6 +31,7 @@ model Workspace {
   invites     Invite[]
   apiKeys     ApiKey[]
   webhooks    Webhook[]
+  reports     ReportSchedule[]
   subscription Subscription?
 }
 
@@ -105,6 +106,7 @@ model Metric {
   workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   snapshots Snapshot[]
   alertRules AlertRule[]
+  reports   ReportSchedule[]
 
   @@index([workspaceId, status])
   // The metrics list orders by updatedAt within a workspace. Without this index
@@ -142,6 +144,52 @@ model Snapshot {
 
   @@index([workspaceId, metricId])
   @@index([metricId, createdAt])
+}
+
+/// A recurring email of a frozen number.
+///
+/// The schedule is the promise: the same metric, over the same window, frozen
+/// and sent — so the buyer does not have to remember to open a dashboard.
+/// `dayOfWeek` + `hour` are in the schedule's own `timezone` (an IANA name),
+/// because "every Monday at 8" means 8 where the person who set it lives.
+///
+/// The send bookkeeping is on the row rather than in Redis, because the row is
+/// the thing that has to survive a restart: `lastPeriod` is the occurrence this
+/// schedule has already delivered, and it is the idempotency key that stops a
+/// retry (or a second instance) from sending the same week twice.
+model ReportSchedule {
+  id          String   @id @default(cuid())
+  workspaceId String
+  metricId    String
+  /// Where the report goes. An address, not an account: a report is read by a
+  /// person, and a person forwards it.
+  email       String
+  /// 0 = Sunday .. 6 = Saturday, in `timezone`.
+  dayOfWeek   Int      @default(1)
+  /// Local hour of the day, 0-23.
+  hour        Int      @default(8)
+  /// IANA zone name ("Europe/Berlin"). Stored verbatim so the day and hour
+  /// mean what the person who set them meant, across a DST change.
+  timezone    String   @default("UTC")
+  /// How many days back the reported window reaches, ending at the send time.
+  windowDays  Int      @default(7)
+  isEnabled   Boolean  @default(true)
+  /// The occurrence (ISO) this schedule last delivered. The idempotency key.
+  lastPeriod  String?
+  /// The occurrence of the last attempt, successful or not — so a failed send
+  /// is retried against the same window instead of a newer one.
+  lastAttemptPeriod String?
+  attempts    Int      @default(0)
+  lastSentAt  DateTime?
+  lastError   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  metric    Metric    @relation(fields: [metricId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([metricId])
 }
 
 model Dashboard {

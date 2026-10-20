@@ -310,3 +310,30 @@ export const WEBHOOK_PATCH = {
   url: { kind: "text", format: "url", max: 2000 },
   isActive: { kind: "bool" },
 } satisfies Schema;
+
+/**
+ * POST /api/reports
+ *
+ * A weekly report is a metric, an address, and a slot in the week. The slot is
+ * three small fields rather than one cron string: `dayOfWeek` and `hour` are
+ * read in `timezone`, because a schedule that names an hour without naming a
+ * zone is the same bug as a link that points at whatever host the request
+ * arrived on.
+ *
+ * `timezone` is deliberately not an enum. IANA zone names are a long, changing
+ * list, and a hard-coded copy of it would refuse zones that exist and accept
+ * ones that do not; it is checked against the runtime's own zone database
+ * instead (see `isValidTimeZone` in `lib/report-schedule.ts`).
+ *
+ * `windowDays` is bounded because it is the width of the window the report
+ * reads: a year of events is not a weekly report, and the metric engine
+ * refuses windows that hold more than 50,000 events anyway.
+ */
+export const REPORT_CREATE = {
+  metricId: { kind: "text", required: true, max: TEXT_NAME_MAX },
+  email: { kind: "text", required: true, format: "email", max: 320 },
+  dayOfWeek: { kind: "int", min: 0, max: 6 },
+  hour: { kind: "int", min: 0, max: 23 },
+  timezone: { kind: "text", max: 64 },
+  windowDays: { kind: "int", min: 1, max: 90 },
+} as const satisfies Schema;
