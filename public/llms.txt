@@ -1,9 +1,10 @@
 # AbetAnalytics
 
-> Product analytics with AI insights for e-commerce and SaaS teams: scheduled
-> metric snapshots, rules that stay silent when healthy, and alerts delivered
-> by email and by HMAC-signed webhooks. A standalone SaaS from the Abetworks
-> suite.
+> Product analytics for e-commerce and SaaS teams: define a metric once, freeze
+> the number with the definition it was computed from, share it with anyone
+> without an account, and have it arrive in an inbox on a schedule. Rules stay
+> silent when healthy; alerts arrive by email and by HMAC-signed webhooks. A
+> standalone SaaS from the Abetworks suite.
 
 Pricing (from https://analytics.abetworks.in/pricing):
 - $19 per month
@@ -20,11 +21,19 @@ Key pages (base: https://analytics.abetworks.in):
 What it does:
 - Snapshots metrics like daily revenue and cart-adds on a schedule, frozen for
   honest historical comparison
+- Any frozen number can be shared as a read-only link — a capability token,
+  revocable — that anyone opens with no account, showing the value, the range
+  and the definition it was computed from
 - A weekly report emails that frozen number with its definition and a
   read-only link, on the day and hour you set, in your own timezone
+- "Why did the number move?" — a dimension breakdown splits the movement
+  between two ranges, and every segment is computed by the same engine that
+  produced the headline
 - Rules such as "revenue < 5,000" fire alerts; a healthy rule stays silent
 - Alerts reach you by email and by x-webhook-signature HMAC-SHA256 deliveries
   (dual-signed: subscription and per-rule), with a delivery record per alert
+- A new workspace can load a week of example data in one click, so the product
+  can be seen before any real data is connected; one click removes it again
 - Owners and admins can take a board-pack CSV of frozen snapshots and funnels,
   a workspace JSON export, and a streamed raw-events CSV; credentials stay behind
 
