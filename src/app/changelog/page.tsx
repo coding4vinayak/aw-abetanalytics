@@ -16,6 +16,23 @@ export default function Page() {
         <div className="mt-8 space-y-8 border-l-2 border-blue-600 pl-6">
           <div>
             <p className="text-sm text-gray-600">October 2026</p>
+            <h2 className="text-lg font-bold">v1.4.0 — See it work, then let it work for you</h2>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-gray-600">
+              <li>A new workspace can load a week of example revenue in one click — two metrics, 223 events and a frozen number — so the product can be seen before any real data is connected. It is labelled as example data, and one click removes it again.</li>
+              <li>A weekly report emails that frozen number with its definition and a read-only link, on the day and hour you set, in your own timezone. A report never re-fires the alert rules: the customer may already have been paged for that number.</li>
+              <li>The emailed link is the same revocable link the dashboard hands out, so the report can be forwarded to whoever has to see the number.</li>
+            </ul>
+          </div>
+          <div>
+            <p className="text-sm text-gray-600">October 2026</p>
+            <h2 className="text-lg font-bold">v1.3.0 — Share the number, and see why it moved</h2>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-gray-600">
+              <li>Any frozen number can be shared as a read-only link — a capability token, revocable — that anyone opens with no account, showing the value, the range and the definition it was computed from. The page is noindex, and the link can be revoked at any time.</li>
+              <li>&quot;Why did the number move?&quot; — a dimension breakdown splits the movement between two ranges, and every segment is computed by the same engine that produced the headline, so the parts cannot drift from the whole.</li>
+            </ul>
+          </div>
+          <div>
+            <p className="text-sm text-gray-600">October 2026</p>
             <h2 className="text-lg font-bold">v1.1.0 — Take your numbers with you</h2>
             <ul className="mt-2 list-disc space-y-1 pl-5 text-gray-600">
               <li>Owners and admins can download a board-pack CSV of every frozen snapshot and funnel, a workspace JSON with metrics, snapshots, dashboards, alerts and team, and a streamed CSV of raw events.</li>
