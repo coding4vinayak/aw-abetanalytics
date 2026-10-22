@@ -1,14 +1,227 @@
 @import "tailwindcss";
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 255, 255, 255;
-  --background-end-rgb: 255, 255, 255;
-}
-
-body {
-  color: rgb(var(--foreground-rgb));
-  background: rgb(var(--background-start-rgb));
+  --ink: #111827;
+  --ink-2: #374151;
+  --ink-3: #4b5563;
+  --line: #d1d5db;
+  --bg: #f9fafb;
+  --card: #ffffff;
+  --accent: #4338ca;
+  --accent-soft: #e0e7ff;
+  --free: #047857;
+  --free-soft: #ecfdf5;
+  --error: #b91c1c;
+  --error-soft: #fef2f2;
 }
 
 * { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+/* Skip link for keyboard navigation */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  z-index: 1000;
+  text-decoration: none;
+}
+.skip-link:focus {
+  top: 12px;
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Visible focus styles for all interactive elements */
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Ensure buttons and links have visible focus */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Remove default focus for mouse users, keep for keyboard */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+body {
+  color: rgb(var(--ink));
+  background: rgb(var(--bg-start)) var(--bg);
+  line-height: 1.55;
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+/* Skip link for keyboard navigation */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  z-index: 1000;
+  text-decoration: none;
+}
+.skip-link:focus {
+  top: 12px;
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Visible focus styles for all interactive elements */
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Ensure buttons and links have visible focus */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Remove default focus for mouse users, keep for keyboard */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* 2026 brand layer */
+.top-accent { height: 4px; background: linear-gradient(90deg, #4338ca, #7c3aed 55%, #06b6d4); }
+
+.eyebrow {
+  font-size: 11px; font-weight: 800; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--accent); margin: 18px 0 6px;
+}
+
+.tool-title { font-size: 32px; letter-spacing: -0.8px; }
+
+.hero h1 { font-size: 40px; letter-spacing: -1.2px; background: linear-gradient(90deg, var(--ink), #3b3486); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+.card { box-shadow: 0 1px 2px rgba(17, 24, 39, .04); }
+
+.btn { box-shadow: 0 2px 8px rgba(67, 56, 202, .28); }
+.btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(67, 56, 202, .34); }
+.btn { transition: box-shadow .15s, transform .15s; }
+
+.tool-card { border-left: 3px solid transparent; }
+.tool-card:hover { border-left-color: var(--accent); }
+
+.upsell { background: linear-gradient(135deg, #111827, #1e1b4b); }
+
+/* Tables */
+.result table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.result th, .result td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.result th { color: var(--ink-2); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+.score-big { font-size: 44px; font-weight: 800; letter-spacing: -1px; }
+.pass { color: var(--free); font-weight: 700; }
+.fail { color: var(--error); font-weight: 700; }
+.warn { color: #b45309; font-weight: 700; }
+
+/* Skip link */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  z-index: 1000;
+  text-decoration: none;
+}
+.skip-link:focus {
+  top: 12px;
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Focus visible for all interactive elements */
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Tables */
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+th { color: var(--ink-2); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+
+.pass { color: var(--free); font-weight: 700; }
+.fail { color: var(--error); font-weight: 700; }
+.warn { color: #b45309; font-weight: 700; }
+
+.cap-note { margin-top: 14px; padding: 12px 14px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); font-size: 13px; font-weight: 600; }
+.error-note { margin-top: 14px; padding: 12px 14px; border-radius: 10px; background: var(--error-soft); color: var(--error); font-size: 13px; }
+
+/* Trust strip */
+.trust-strip { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 14px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.trust-strip span { color: #16a34a; }
+
+/* FAQ */
+.faq { border-top: 1px solid var(--line); padding: 10px 2px; }
+.faq summary { cursor: pointer; font-weight: 700; font-size: 14px; list-style: none; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::before { content: '+'; display: inline-block; width: 18px; color: var(--accent); font-weight: 800; }
+.faq[open] summary::before { content: '−'; }
+.faq p { margin: 8px 0 2px 20px; color: var(--ink-2); font-size: 14px; line-height: 1.55; }
+
+/* Hero */
+.hero-btns { display: flex; gap: 12px; justify-content: center; margin-top: 20px; flex-wrap: wrap; }
+.btn-ghost { background: transparent; border: 1.5px solid var(--accent); color: var(--accent); }
+
+/* Suite band */
+.suite-band { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; max-width: 1080px; margin: 0 auto 34px; }
+.suite-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 8px; transition: transform .12s ease, border-color .12s ease; }
+.suite-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+.suite-card strong { font-size: 15px; color: var(--ink); }
+.suite-card span { font-size: 13px; color: var(--ink-2); line-height: 1.45; flex: 1; }
+.suite-card em { font-style: normal; font-size: 13px; font-weight: 700; color: var(--accent); }
+
+/* Footer */
+.footer-brand { font-size: 16px; font-weight: 700; }
+.footer-brand em { font-style: normal; color: var(--accent); }
+.footer-line { color: var(--ink-2); font-size: 13px; margin: 6px 0 10px; max-width: 560px; }
+.site-footer .wrap { display: block; }

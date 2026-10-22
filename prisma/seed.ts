@@ -1,4 +1,6 @@
 import crypto from "crypto";
+import { DEMO_METRICS, DEMO_RANGE, buildDemoEvents } from "../src/lib/demo-data";
+import { asInputJson } from "../src/lib/json";
 import { prisma } from "../src/lib/db";
 import { takeSnapshot } from "../src/lib/snapshots";
 import { mintApiKey } from "../src/lib/apikeys";
@@ -31,90 +33,39 @@ async function main() {
   });
   console.log("Workspace:", workspace.id);
 
-  const rangeStart = new Date("2026-03-01T00:00:00Z");
-  const rangeEnd = new Date("2026-04-01T00:00:00Z");
+  const rangeStart = new Date(DEMO_RANGE.start);
+  const rangeEnd = new Date(DEMO_RANGE.end);
 
-  // 30 days of funnel traffic: 60 visits, 30 signups, 12 payments.
-  const events: { type: string; occurredAt: Date; dimensions: object; value: number | null }[] = [];
-  for (let i = 0; i < 60; i++) {
-    const day = 1 + (i % 28);
-    const user = `user-${i}`;
-    events.push({
-      type: "visit",
-      occurredAt: new Date(`2026-03-${String(day).padStart(2, "0")}T10:00:00Z`),
-      dimensions: { user, channel: i % 2 === 0 ? "organic" : "paid" },
-      value: null,
-    });
-    if (i % 2 === 0) {
-      events.push({
-        type: "signup",
-        occurredAt: new Date(`2026-03-${String(day).padStart(2, "0")}T11:00:00Z`),
-        dimensions: { user, plan: i % 4 === 0 ? "team" : "pro" },
-        value: null,
-      });
-    }
-    if (i % 5 === 0) {
-      events.push({
-        type: "payment",
-        occurredAt: new Date(`2026-03-${String(day).padStart(2, "0")}T12:00:00Z`),
-        dimensions: { user, plan: "pro" },
-        value: 49 + (i % 3) * 50,
-      });
-    }
-  }
+  // 30 days of funnel traffic: 60 visits, 30 signups, 12 payments. The dataset
+  // lives in `src/lib/demo-data.ts` because the landing page counts it — two
+  // copies of a number is how a promise becomes a lie.
+  const events = buildDemoEvents();
+
   // The March window is the demo dataset's identity: if it already has events,
   // re-seeding must not double the funnel's counts.
   if ((await prisma.event.count({ where: { workspaceId: workspace.id, occurredAt: { gte: rangeStart, lt: rangeEnd } } })) === 0) {
-    await prisma.event.createMany({ data: events.map((e) => ({ ...e, workspaceId: workspace.id })) });
+    await prisma.event.createMany({ data: events.map((e) => ({ ...e, workspaceId: workspace.id, dimensions: asInputJson(e.dimensions) })) });
     console.log(`Events: ${events.length}`);
   } else {
     console.log("Already present: March demo events");
   }
 
+  // The three demo metrics, from the same list the landing page counts.
+  const [funnelSpec, mrrSpec, signupsSpec] = DEMO_METRICS;
   const funnel = await once(
-    "metric Trial to paid",
-    () => prisma.metric.findFirst({ where: { workspaceId: workspace.id, name: "Trial to paid" } }),
-    () => prisma.metric.create({
-      data: {
-        workspaceId: workspace.id,
-        name: "Trial to paid",
-        description: "Visit → signup → payment by user id.",
-        kind: "funnel",
-        config: {
-          identityField: "user",
-          steps: [{ event: "visit" }, { event: "signup" }, { event: "payment" }],
-        },
-        status: "ACTIVE",
-      },
-    }),
+    `metric ${funnelSpec.name}`,
+    () => prisma.metric.findFirst({ where: { workspaceId: workspace.id, name: funnelSpec.name } }),
+    () => prisma.metric.create({ data: { workspaceId: workspace.id, ...funnelSpec } }),
   );
   const mrr = await once(
-    "metric Payment volume",
-    () => prisma.metric.findFirst({ where: { workspaceId: workspace.id, name: "Payment volume" } }),
-    () => prisma.metric.create({
-      data: {
-        workspaceId: workspace.id,
-        name: "Payment volume",
-        description: "Sum of payment values in range.",
-        kind: "sum",
-        config: { event: "payment", field: "value" },
-        status: "ACTIVE",
-      },
-    }),
+    `metric ${mrrSpec.name}`,
+    () => prisma.metric.findFirst({ where: { workspaceId: workspace.id, name: mrrSpec.name } }),
+    () => prisma.metric.create({ data: { workspaceId: workspace.id, ...mrrSpec } }),
   );
   const signups = await once(
-    "metric Signups",
-    () => prisma.metric.findFirst({ where: { workspaceId: workspace.id, name: "Signups" } }),
-    () => prisma.metric.create({
-      data: {
-        workspaceId: workspace.id,
-        name: "Signups",
-        description: "Signup events in range.",
-        kind: "count",
-        config: { event: "signup" },
-        status: "ACTIVE",
-      },
-    }),
+    `metric ${signupsSpec.name}`,
+    () => prisma.metric.findFirst({ where: { workspaceId: workspace.id, name: signupsSpec.name } }),
+    () => prisma.metric.create({ data: { workspaceId: workspace.id, ...signupsSpec } }),
   );
   console.log("Metrics:", funnel.id, mrr.id, signups.id);
 
