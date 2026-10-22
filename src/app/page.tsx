@@ -1,3 +1,4 @@
+import { DEMO_EVENT_COUNT, DEMO_METRICS } from "@/lib/demo-data";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteNav, SiteFooter } from "@/components/site";
@@ -62,11 +63,11 @@ export default function Home() {
             <h2 className="text-2xl font-bold">Live in three steps</h2>
           <div className="flex gap-4">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">1</span>
-            <div><p className="font-bold text-gray-900">Send events</p><p className="mt-1 text-sm text-gray-600">The demo workspace has 102 events waiting. Your app posts value plus dimensions the same way.</p></div>
+            <div><p className="font-bold text-gray-900">Send events</p><p className="mt-1 text-sm text-gray-600">The demo workspace has {DEMO_EVENT_COUNT} events waiting. Your app posts value plus dimensions the same way.</p></div>
           </div>
           <div className="flex gap-4">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">2</span>
-            <div><p className="font-bold text-gray-900">Define metrics once</p><p className="mt-1 text-sm text-gray-600">Pick a kind, set filters, validate. The demo ships three working metrics.</p></div>
+            <div><p className="font-bold text-gray-900">Define metrics once</p><p className="mt-1 text-sm text-gray-600">Pick a kind, set filters, validate. The demo ships {DEMO_METRICS.length} working metrics.</p></div>
           </div>
           <div className="flex gap-4">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">3</span>
