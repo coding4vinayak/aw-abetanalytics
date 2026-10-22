@@ -15,6 +15,15 @@ export default function Page() {
         <p className="mt-2 text-gray-600">Newest first. Breaking changes are marked <strong>BREAKING</strong> and get 30 days&apos; notice here before they ship.</p>
         <div className="mt-8 space-y-8 border-l-2 border-blue-600 pl-6">
           <div>
+            <p className="text-sm text-muted">October 2026</p>
+            <h2 className="text-lg font-bold">v1.5.0 — The contract, and the check that keeps it true</h2>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-muted">
+              <li>The API now publishes an OpenAPI 3.1 contract: <code>/openapi.json</code> (the conventional path every tool probes first) and <code>/api/openapi</code> (the versioned alias), unauthenticated, because a contract is a description and an integrator should be able to read it before it has a key.</li>
+              <li>The contract cannot drift from the product. A check reads every claim back out of the source that serves it: every documented call has a route that answers it and every route that answers is documented; every request body is compared with the app&rsquo;s own declared field table, so the contract cannot advertise a field the door would refuse nor omit one it requires; the auth a route enforces is the auth the contract advertises; and the version is the app&rsquo;s own version.</li>
+              <li>It caught four of its own mistakes while it was being written &mdash; a dashboard that took metric ids the door does not, an alert that claimed an email address the door never reads, a report missing its window, and an explanation carrying four range fields the door does not accept.</li>
+            </ul>
+          </div>
+          <div>
             <p className="text-sm text-gray-600">October 2026</p>
             <h2 className="text-lg font-bold">v1.4.0 — See it work, then let it work for you</h2>
             <ul className="mt-2 list-disc space-y-1 pl-5 text-gray-600">

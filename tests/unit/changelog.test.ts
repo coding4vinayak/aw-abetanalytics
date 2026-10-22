@@ -14,6 +14,7 @@ import { readFileSync } from "node:fs";
 const CHANGELOG = readFileSync(new URL("../../src/app/changelog/page.tsx", import.meta.url), "utf8");
 
 const SHIPPED = [
+  { feature: "the OpenAPI contract", marks: ["OpenAPI 3.1 contract", "cannot drift from the product"] },
   { feature: "the board-pack export", marks: ["board-pack CSV"] },
   { feature: "the dimension breakdown", marks: ["breakdown"] },
   { feature: "the read-only share link", marks: ["read-only link"] },
