@@ -46,6 +46,10 @@ const MAX_HANDLERS = 51;
  */
 const PUBLIC: Record<string, string[]> = {
   "src/app/api/health/route.ts": ["GET"],
+  // The contract is a description, not data: an integrator should be able to
+  // read it before it has a key, and the document holds no workspace's rows.
+  "src/app/api/openapi/route.ts": ["GET"],
+  "src/app/openapi.json/route.ts": ["GET"],
 };
 
 /** Handlers that authenticate by calling something outside the body. */

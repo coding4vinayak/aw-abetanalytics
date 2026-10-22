@@ -302,6 +302,16 @@ All routes below need the key from [Authentication](#authentication) unless the
 comment says `session`; those take the signed-in browser session instead. The
 snippets omit the header for width.
 
+**The machine-readable contract**: `GET /openapi.json` (the conventional path
+every tool probes first) and `GET /api/openapi` (the versioned alias) serve the
+same OpenAPI 3.1 document, unauthenticated — a contract is a description, and an
+integrator should be able to read it before it has a key. It cannot drift from
+the product: `npm run check:contract` reads every claim back out of the source
+that serves it — every documented call has a route that answers it and every
+route that answers is documented, every request body is compared with the
+app's own declared field table, the auth a route enforces is the auth the
+contract advertises, and the version is the app's own version.
+
 ```
 GET    /api/health                         # liveness + DB ping, no key
 GET    /api/events?workspaceId=&type=      # list, newest first

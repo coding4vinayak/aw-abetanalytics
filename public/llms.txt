@@ -17,6 +17,8 @@ Key pages (base: https://analytics.abetworks.in):
 - /signup — start the free trial
 - /login — sign in
 - /api/health — service health (JSON)
+- /openapi.json — the OpenAPI 3.1 contract, unauthenticated (conventional path)
+- /api/openapi — the same contract, versioned alias
 
 What it does:
 - Snapshots metrics like daily revenue and cart-adds on a schedule, frozen for

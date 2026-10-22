@@ -12,6 +12,7 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "test": "tsx --test tests/unit/*.test.ts",
+    "check:contract": "tsx scripts/check-contract.mts",
     "seed:key": "tsx prisma/seed-key.ts"
   },
   "dependencies": {
