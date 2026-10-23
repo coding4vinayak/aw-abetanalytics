@@ -312,6 +312,13 @@ route that answers is documented, every request body is compared with the
 app's own declared field table, the auth a route enforces is the auth the
 contract advertises, and the version is the app's own version.
 
+**The deep-content file**: `GET /llms-full.txt` carries the shipped index
+(`llms.txt`) verbatim and then every operation the contract answers, each with
+its own summary and the door it declares — built from those two sources, not
+from hand-written prose, so it cannot say more than the product does.
+`npm run check:llms-full` (in CI) fails naming the first line that moved
+against a stale index or contract; rebuild with `npm run build:llms-full`.
+
 ```
 GET    /api/health                         # liveness + DB ping, no key
 GET    /api/events?workspaceId=&type=      # list, newest first

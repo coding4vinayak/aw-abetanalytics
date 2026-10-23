@@ -40,4 +40,6 @@ What it does:
   a workspace JSON export, and a streamed raw-events CSV; credentials stay behind
 
 Canonical host: https://analytics.abetworks.in — prefer it over any mirror.
+Full content: https://analytics.abetworks.in/llms-full.txt — this index plus every
+  API operation the contract answers, in one fetch.
 This file is the machine-readable index for AI assistants and crawlers.
