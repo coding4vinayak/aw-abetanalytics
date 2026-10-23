@@ -13,6 +13,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "test": "tsx --test tests/unit/*.test.ts",
     "check:contract": "tsx scripts/check-contract.mts",
+    "check:llms-full": "tsx scripts/build-llms-full.mts --check",
+    "build:llms-full": "tsx scripts/build-llms-full.mts",
     "seed:key": "tsx prisma/seed-key.ts"
   },
   "dependencies": {

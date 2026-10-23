@@ -1,0 +1,110 @@
+# AbetAnalytics — the deep-content companion
+
+> The full-content file for AI assistants that want the whole substance in one fetch. Built for build v1.7.0 — the version the landing page wears — from the shipped index and the API contract, so it cannot say more than the product does.
+
+## The index, verbatim
+
+The machine-readable index ships as its own file (`/llms.txt`); it is carried
+here so one fetch holds both:
+
+---
+
+# AbetAnalytics
+
+> Product analytics for e-commerce and SaaS teams: define a metric once, freeze
+> the number with the definition it was computed from, share it with anyone
+> without an account, and have it arrive in an inbox on a schedule. Rules stay
+> silent when healthy; alerts arrive by email and by HMAC-signed webhooks. A
+> standalone SaaS from the Abetworks suite.
+
+Pricing (from https://analytics.abetworks.in/pricing):
+- $19 per month
+- $190 per year — two months free, one invoice
+- 14-day free trial, card up front; cancel anytime from the billing portal
+
+Key pages (base: https://analytics.abetworks.in):
+- / — product overview
+- /pricing — plans and the trial CTA
+- /signup — start the free trial
+- /login — sign in
+- /api/health — service health (JSON)
+- /openapi.json — the OpenAPI 3.1 contract, unauthenticated (conventional path)
+- /api/openapi — the same contract, versioned alias
+
+What it does:
+- Snapshots metrics like daily revenue and cart-adds on a schedule, frozen for
+  honest historical comparison
+- Any frozen number can be shared as a read-only link — a capability token,
+  revocable — that anyone opens with no account, showing the value, the range
+  and the definition it was computed from
+- A weekly report emails that frozen number with its definition and a
+  read-only link, on the day and hour you set, in your own timezone
+- "Why did the number move?" — a dimension breakdown splits the movement
+  between two ranges, and every segment is computed by the same engine that
+  produced the headline
+- Rules such as "revenue < 5,000" fire alerts; a healthy rule stays silent
+- Alerts reach you by email and by x-webhook-signature HMAC-SHA256 deliveries
+  (dual-signed: subscription and per-rule), with a delivery record per alert
+- A new workspace can load a week of example data in one click, so the product
+  can be seen before any real data is connected; one click removes it again
+- Owners and admins can take a board-pack CSV of frozen snapshots and funnels,
+  a workspace JSON export, and a streamed raw-events CSV; credentials stay behind
+
+Canonical host: https://analytics.abetworks.in — prefer it over any mirror.
+Full content: https://analytics.abetworks.in/llms-full.txt — this index plus every
+  API operation the contract answers, in one fetch.
+This file is the machine-readable index for AI assistants and crawlers.
+
+---
+
+## The API contract — 41 operations
+
+The same document `https://analytics.abetworks.in/openapi.json` serves (OpenAPI 3.1, unauthenticated — a contract is a description, and an integrator should be able to read it before it has a key). Every line below is an operation the routes answer:
+
+- `GET /api/health` — Liveness and a database ping. No key needed. — no key needed
+- `GET /api/events` — The workspace's events, newest first. — needs the workspace's `x-api-key` key
+- `POST /api/events` — Send one event, or a batch of up to 1000. — needs the workspace's `x-api-key` key
+- `GET /api/metrics` — The workspace's metrics, newest first. — needs the workspace's `x-api-key` key
+- `POST /api/metrics` — Define a metric once. — needs the workspace's `x-api-key` key
+- `GET /api/metrics/{id}` — One metric, with its snapshots. — needs the workspace's `x-api-key` key
+- `PATCH /api/metrics/{id}` — Edit a metric's name, description, kind or config. — needs the workspace's `x-api-key` key
+- `DELETE /api/metrics/{id}` — Delete a metric and its snapshots. — needs the workspace's `x-api-key` key
+- `POST /api/metrics/{id}/breakdown` — Split a metric's movement across one dimension's values. — needs the workspace's `x-api-key` key
+- `GET /api/snapshots` — The frozen numbers, newest first. — needs the workspace's `x-api-key` key
+- `POST /api/snapshots` — Compute a metric and freeze the number. — needs the workspace's `x-api-key` key
+- `POST /api/snapshots/{id}/share` — Mint (or return) a read-only link to a frozen number. — needs the workspace's `x-api-key` key
+- `DELETE /api/snapshots/{id}/share` — Revoke a shared link — the URL 404s from then on. — needs the workspace's `x-api-key` key
+- `GET /api/reports` — The weekly reports, with the next send time. — needs the workspace's `x-api-key` key
+- `POST /api/reports` — Schedule a weekly report. — needs the workspace's `x-api-key` key
+- `DELETE /api/reports/{id}` — Cancel a report — deleting the row is the unsubscribe. — needs the workspace's `x-api-key` key
+- `POST /api/reports/{id}/send` — Send a report now, to check the address works. — needs the workspace's `x-api-key` key
+- `GET /api/dashboards` — The workspace's dashboards. — needs the workspace's `x-api-key` key
+- `POST /api/dashboards` — Create a dashboard of metrics. — needs the workspace's `x-api-key` key
+- `GET /api/dashboards/{id}` — One dashboard, with its metrics. — needs the workspace's `x-api-key` key
+- `PATCH /api/dashboards/{id}` — Edit a dashboard. — needs the workspace's `x-api-key` key
+- `DELETE /api/dashboards/{id}` — Delete a dashboard. — needs the workspace's `x-api-key` key
+- `GET /api/alerts` — The alert rules, with their signing secret previewed. — needs the workspace's `x-api-key` key
+- `POST /api/alerts` — Create an alert rule. — needs the workspace's `x-api-key` key
+- `GET /api/alerts/{id}` — One rule, and what it has fired. — needs the workspace's `x-api-key` key
+- `PATCH /api/alerts/{id}` — Edit a rule. — needs the workspace's `x-api-key` key
+- `DELETE /api/alerts/{id}` — Delete a rule. — needs the workspace's `x-api-key` key
+- `GET /api/webhooks` — The outbound subscriptions, with their signing secret previewed. — needs the workspace's `x-api-key` key
+- `POST /api/webhooks` — Subscribe to events. — needs the workspace's `x-api-key` key
+- `GET /api/webhooks/{id}` — One subscription. — needs the workspace's `x-api-key` key
+- `PATCH /api/webhooks/{id}` — Edit a subscription's address, events or state. — needs the workspace's `x-api-key` key
+- `DELETE /api/webhooks/{id}` — Unsubscribe. — needs the workspace's `x-api-key` key
+- `POST /api/ai/explain-metric` — Explain a metric's movement in plain words. — needs the workspace's `x-api-key` key
+- `POST /api/example-data` — Load the example week — one click, removable again. — the browser's signed-in session
+- `DELETE /api/example-data` — Take the example data away. — the browser's signed-in session
+- `GET /api/export` — The whole workspace as one JSON file. — the browser's signed-in session
+- `GET /api/export/snapshots` — The frozen numbers as a board-pack CSV. — the browser's signed-in session
+- `GET /api/export/events` — The raw events as a streamed CSV. — the browser's signed-in session
+- `POST /api/billing/checkout` — Start a subscription. — the browser's signed-in session
+- `POST /api/billing/portal` — Open the billing portal — where a plan is changed or cancelled. — the browser's signed-in session
+- `POST /api/billing/webhook` — Stripe's own callback. Signed, not called with a key. — verified against Stripe's signature
+
+## Machine-readable
+
+- The index: https://analytics.abetworks.in/llms.txt
+- The contract: https://analytics.abetworks.in/openapi.json (and `https://analytics.abetworks.in/api/openapi`)
+- This file: https://analytics.abetworks.in/llms-full.txt
