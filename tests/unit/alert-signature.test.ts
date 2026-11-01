@@ -33,6 +33,21 @@ test("both spellings ride every delivery", () => {
   assert.match(alerts, /"User-Agent": "Abetanalytics-Webhook\/1\.0",/, "a receiver debugging a POST knows who sent it");
 });
 
+// Two more headers, and the reason each is here. A rule and a subscription
+// delivery are the same door from the other side, so both must carry the
+// freshness value nuCRM's plugin receiver checks (only when present — absent
+// means no window) and the delivery id a receiver dedupes on. The id has to be
+// inside the signed body as well as in the header: in the header alone a
+// replayer could simply change it, which is exactly the property that makes it
+// worth deduplicating on.
+test("freshness and a dedupe-able delivery id ride every alert delivery", () => {
+  assert.match(alerts, /"X-Webhook-Timestamp": String\(Date\.now\(\)\),/);
+  assert.match(alerts, /"X-Webhook-Delivery": event\.id,/);
+  const bodyAt = alerts.indexOf("const body = JSON.stringify(");
+  const idInBody = alerts.slice(bodyAt, alerts.indexOf("});", bodyAt)).indexOf("id: event.id,");
+  assert.ok(idInBody !== -1, "the same id travels inside the bytes the digest covers");
+});
+
 test("the firing is recorded before the delivery is attempted", () => {
   assert.ok(
     alerts.indexOf("alertEvent.create") !== -1 &&
@@ -40,7 +55,6 @@ test("the firing is recorded before the delivery is attempted", () => {
     "a webhook timeout must not lose the fact that the rule fired",
   );
 });
-
 test("the egress policy is still immediately above the fetch", () => {
   const check = alerts.indexOf('assertAllowedTarget(rule.webhookUrl, "webhookUrl")');
   const fetchAt = alerts.indexOf("await fetch(rule.webhookUrl");
