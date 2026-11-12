@@ -49,6 +49,11 @@ export async function evaluateAlertRules(
       // escaping changes — and the drift would look like a forged signature
       // at the receiver, not like a bug here.
       const body = JSON.stringify({
+        // The AlertEvent row, written before this POST: the id a receiver
+        // dedupes on, and the one that survives a future retry of exactly this
+        // firing. Inside the signed bytes, so it cannot be changed without
+        // breaking the signature.
+        id: event.id,
         rule: { id: rule.id, name: rule.name, operator: rule.operator, threshold: rule.threshold },
         metricId,
         snapshotId,
@@ -68,6 +73,14 @@ export async function evaluateAlertRules(
           // one with no adapter in between. The family header stays what
           // this product's own receivers already read.
           "X-Webhook-Signature": `sha256=${signature}`,
+          // The two headers the same receiver reads after verifying that
+          // digest, sent here exactly as `lib/webhooks.ts` sends them on a
+          // subscription delivery — a rule and a subscription are the same
+          // door from the other side, and one of them quietly lacking
+          // freshness or an id is the kind of difference an operator finds
+          // only when a replay matters.
+          "X-Webhook-Timestamp": String(Date.now()),
+          "X-Webhook-Delivery": event.id,
           "User-Agent": "Abetanalytics-Webhook/1.0",
         },
         body,

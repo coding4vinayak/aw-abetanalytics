@@ -400,6 +400,10 @@ hands it back. Verify against the raw request bytes — re-serialising the JSON
 before verification fails on the first key whose ordering differs, and that
 reads like a broken signature rather than a changed string.
 
+Alert deliveries carry the same two headers, and the alert&rsquo;s own `AlertEvent` id now
+rides in the body as `id` — one id for the firing, the receipt and the dedupe key,
+inside the signed bytes.
+
 ## Webhooks
 
 Workspace-level subscriptions (`/api/webhooks`): each row is a URL plus the
@@ -421,6 +425,15 @@ an inbound nuCRM plugin webhook. The secret is returned once by POST; reads
 preview it. A receiver that is down is logged, not retried, and never fails
 the snapshot that emitted the event. The menu, the emitters and the headers
 are pinned by `tests/unit/webhook-dispatch.test.ts` against the source itself.
+
+Every delivery also carries `X-Webhook-Timestamp` (send-time milliseconds) and
+`X-Webhook-Delivery` (the same `id`). nuCRM's plugin receiver enforces a 5-minute
+freshness window when the timestamp header is present and skips the check when it
+is absent, so a stale re-send is refused rather than accepted twice. The timestamp
+sits outside the signed bytes, so what a receiver can truly rely on is the delivery
+id: it is inside the body the digest covers, which means a receiver that remembers
+ids rejects the duplicate arrival and a replayer cannot hand it a new one without
+breaking the signature.
 
 ## Billing
 
